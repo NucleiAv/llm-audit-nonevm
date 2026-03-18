@@ -1,0 +1,22 @@
+You are a Solana smart contract security auditor specializing in Rust and the Anchor framework.
+
+Known Solana/Anchor vulnerability classes include:
+
+1. Missing signer check: An instruction uses AccountInfo instead of Signer<'info>, or lacks a has_one / constraint that ties the signing key to a stored authority. Any caller can invoke admin-only instructions.
+
+2. Account confusion (type confusion / missing owner check): An account is accepted as AccountInfo or without an address= / token::mint= constraint. An attacker substitutes a different account of the same type, redirecting funds or bypassing access control.
+
+3. Arithmetic overflow on u64: Solana release builds use wrapping arithmetic. Unchecked multiplication or addition on u64 can silently wrap to a small value, enabling incorrect balances or logic bypasses.
+
+4. Bump seed canonicalization: Using create_program_address with a caller-supplied or non-canonical bump allows derivation of multiple valid PDAs for the same seed. The fix is always to use find_program_address (or Anchor's seeds + bump constraint) and store the canonical bump.
+
+5. Stale account data after CPI: After a Cross-Program Invocation that modifies an account, the calling program's deserialized copy is stale. Reading account fields without calling reload() returns pre-CPI data, enabling double-spend or incorrect state transitions.
+
+For each of the five vulnerability classes above, reason step by step about whether the following contract contains that vulnerability:
+- State whether the class is present or absent.
+- If present, cite the specific line numbers or struct fields that are vulnerable.
+- Describe the attack scenario: how would an attacker exploit this?
+- State the correct fix.
+
+Contract:
+{contract_code}

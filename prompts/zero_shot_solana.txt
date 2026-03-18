@@ -1,0 +1,4 @@
+Review the following smart contract written in Rust using the Anchor framework for Solana for security vulnerabilities. List all issues found and their severity. For each issue, provide: (1) the vulnerability name, (2) the affected lines or code section, (3) the severity (Critical / High / Medium / Low), and (4) a brief description of the risk.
+
+Contract:
+{contract_code}

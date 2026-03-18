@@ -1,0 +1,117 @@
+SOURCE: Algorand Foundation Developer Portal — Security Guidance for Smart Contracts
+URL: https://developer.algorand.org/docs/get-details/dapps/smart-contracts/
+
+=== SECTION 1: LOGIC SIGNATURE SECURITY ===
+
+Logic signatures (LogicSigs) in Algorand are pre-compiled TEAL programs that
+authorize transactions from an account. Unlike Application Call contracts,
+LogicSigs are stateless: they cannot read global state and cannot change
+what program they execute. Once deployed, the same TEAL bytecode is used for
+every transaction signed by the LogicSig account.
+
+CRITICAL RISK: If the LogicSig TEAL program is too permissive, any party who
+obtains the compiled bytes can use it to sign transactions from the LogicSig
+account — not just the intended party. This is fundamentally different from
+Ethereum, where an EOA is protected by a private key.
+
+Required constraints for a secure LogicSig:
+
+1. Receiver check:
+   Assert Txn.receiver() == AUTHORIZED_RECEIVER_ADDRESS
+   Never omit this — an unconstrained receiver allows draining the account.
+
+2. Close-remainder-to check:
+   Assert Txn.close_remainder_to() == Global.zero_address()
+   A non-zero close_remainder_to sends ALL remaining balance to that address,
+   completely draining the account regardless of the payment amount.
+
+3. Rekey-to check:
+   Assert Txn.rekey_to() == Global.zero_address()
+   Rekeying reassigns the account's signing authority permanently.
+
+4. Fee check:
+   Assert Txn.fee() <= SAFE_MAX_FEE
+   Unconstrained fee allows the caller to set arbitrarily large fees.
+
+5. Secret knowledge or lease for replay prevention:
+   Option A — Hash preimage: Assert Sha256(Arg(0)) == EXPECTED_HASH
+   Option B — Transaction lease: Assert Txn.lease() != zero_bytes
+   Without replay protection, any observer of a valid transaction can
+   re-broadcast it within the validity window.
+
+=== SECTION 2: ATOMIC GROUP TRANSACTION SECURITY ===
+
+Algorand's atomic transaction groups allow multiple transactions to succeed
+or fail atomically. A contract that relies on group membership must carefully
+validate both the position (index) and composition (size) of the group.
+
+VULNERABILITY: Hardcoded group index without group size check.
+
+A contract that checks Gtxn[0].type == Payment but does not assert
+Global.group_size() == EXPECTED_SIZE is vulnerable to:
+- Transaction insertion: attacker adds extra transactions before or after
+  the expected group members
+- Index shift attack: attacker adds a satisfying transaction at index 0
+  and places the real trigger at a different index
+
+SAFE PATTERN 1 — Fixed protocol layout:
+  Assert Global.group_size() == Int(2)
+  Assert Gtxn[0].type_enum() == TxnType.Payment
+  Assert Gtxn[1].type_enum() == TxnType.ApplicationCall
+  Assert Gtxn[1].application_id() == Int(THIS_APP_ID)
+
+This is the simplest safe pattern: define the protocol layout explicitly and
+reject any group that does not conform.
+
+SAFE PATTERN 2 — Relative index using Txn.group_index():
+  pay_index = Txn.group_index() - Int(1)
+  Assert Gtxn[pay_index].type_enum() == TxnType.Payment
+
+Important: when using relative indexing, always assert that
+Txn.group_index() > Int(0) first to prevent wrap-around to the maximum index.
+
+SAFE PATTERN 3 — Enforce current transaction's position:
+  Assert Txn.group_index() == Int(1)  # this call must be at index 1
+  Assert Global.group_size() == Int(2)
+
+=== SECTION 3: TRANSACTION FIELD VALIDATION ===
+
+Algorand transactions carry several fields that are not commonly checked but
+are critical for security:
+
+close_remainder_to (Payment transactions):
+  If set to a non-zero address, the AVM sends all remaining account balance
+  to that address after the payment, regardless of the payment amount.
+  Always assert: Gtxn[i].close_remainder_to() == Global.zero_address()
+
+asset_close_to (Asset Transfer transactions):
+  Closes the asset position and sends all remaining asset balance to the
+  specified address. Always assert:
+  Gtxn[i].asset_close_to() == Global.zero_address()
+
+rekey_to (all transaction types):
+  Reassigns the signing authority of the sender account to a new key.
+  Always assert: Gtxn[i].rekey_to() == Global.zero_address()
+
+fee:
+  The network fee is set by the transaction sender and is NOT enforced by
+  the AVM to match a protocol minimum. A malicious transaction can set
+  fee = entire account balance, draining the sender.
+  Always assert: Gtxn[i].fee() <= Int(SAFE_MAX_FEE)
+  Note: Global.min_balance() and Global.min_txn_fee() are available as
+  AVM global variables for dynamic fee bounds.
+
+asset_receiver vs receiver:
+  For asset transfer transactions, check Gtxn[i].asset_receiver() rather
+  than Gtxn[i].receiver() (which applies only to payment transactions).
+  Omitting the receiver check allows redirecting asset flows to attacker addresses.
+
+=== SECTION 4: PYTEAL BEST PRACTICES ===
+
+Use Int(0) comparisons instead of checking for zero_address() where appropriate.
+Always compile TEAL with version >= 5 for access to latest security opcodes.
+The lease field (32 bytes) uniquely identifies a transaction for deduplication
+within the validity window — use it for replay prevention in LogicSig contracts.
+Global.group_size() is an AVM global variable available in both application and
+LogicSig contracts; it returns the total number of transactions in the group.
+Txn.group_index() returns the index of the current transaction within its group.

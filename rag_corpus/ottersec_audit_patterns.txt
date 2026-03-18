@@ -1,0 +1,111 @@
+SOURCE: OtterSec Public Audit Reports (GitHub: otter-sec/public-audits)
+URL: https://github.com/otter-sec/public-audits
+
+=== RECURRING HIGH-SEVERITY FINDINGS FROM OTTERSEC SOLANA AUDITS ===
+
+The following patterns appear repeatedly in OtterSec's public Solana audit
+findings. Each represents a class of vulnerability that has led to real
+financial losses or critical security risks in production protocols.
+
+--- FINDING CLASS: AUTHORITY NOT ENFORCED AS SIGNER ---
+
+Severity: Critical
+Description: A program stores an authority pubkey in state but does not
+require that the authority key actually signed the transaction when it
+is invoked. Typically occurs when the account struct uses AccountInfo
+instead of Signer<'info>, or when Anchor's has_one constraint is missing.
+
+Example vulnerable struct:
+  pub struct SetAdmin<'info> {
+      #[account(mut)]
+      pub state: Account<'info, ProtocolState>,
+      pub new_admin: AccountInfo<'info>,  // missing Signer
+  }
+
+Impact: Any caller can invoke admin functions (pause protocol, drain treasury,
+change fee parameters, upgrade program authority) without being the actual admin.
+
+Fix: Change AccountInfo to Signer<'info> and add has_one = admin constraint.
+
+--- FINDING CLASS: COLLATERAL ACCOUNT NOT VALIDATED ---
+
+Severity: Critical
+Description: Lending or stablecoin protocols that accept collateral fail to
+verify that the submitted collateral account matches the expected mint or
+token type. The check is either absent or uses only AccountInfo without
+address or token::mint constraints.
+
+Real example: Cashio (March 2022) — ~$52M loss. The CASH minting contract
+accepted any account as collateral without verifying the mint address.
+Attackers deposited worthless SPL tokens and received CASH in return.
+
+Fix: Use typed Account<'info, Mint> with address = state.treasury_mint,
+or Account<'info, TokenAccount> with token::mint = expected_mint.
+
+--- FINDING CLASS: FEE VAULT SUBSTITUTION ---
+
+Severity: High
+Description: Protocol fee collection uses an AccountInfo for the destination
+vault without verifying it matches the protocol-registered fee vault key.
+An attacker passes their own token account as the fee destination.
+
+Fix: Use #[account(address = state.fee_vault)] on a typed TokenAccount.
+
+--- FINDING CLASS: INTEGER OVERFLOW IN REWARD CALCULATION ---
+
+Severity: High
+Description: Reward or yield calculations multiply a user-supplied amount
+by a rate without checked arithmetic. In release builds, overflow wraps
+silently, producing incorrect (often near-zero) reward amounts that allow
+users to claim more than their entitled share.
+
+Vulnerable code:
+  let reward = staked_amount * reward_rate_per_epoch / DENOMINATOR;
+
+Fix:
+  let reward = staked_amount
+      .checked_mul(reward_rate_per_epoch)
+      .ok_or(ErrorCode::Overflow)?
+      .checked_div(DENOMINATOR)
+      .ok_or(ErrorCode::Overflow)?;
+
+--- FINDING CLASS: NON-CANONICAL BUMP SEED ---
+
+Severity: Medium-High
+Description: Programs that use create_program_address with a user-provided
+bump value, rather than find_program_address, can be exploited to create
+duplicate PDA accounts for the same seed. This enables account confusion
+attacks where a malicious account occupies the same seed namespace as a
+legitimate program account.
+
+Observed pattern: A program accepts a bump parameter in an instruction and
+stores it without verifying it is the canonical bump returned by
+find_program_address for those seeds.
+
+Fix: Never accept caller-supplied bump values. Derive and store the canonical
+bump from find_program_address (or Anchor's seeds + bump constraint) at
+account initialization time only.
+
+--- FINDING CLASS: STALE BALANCE AFTER TOKEN CPI ---
+
+Severity: Medium
+Description: After a token transfer CPI, the calling program reads a token
+account's balance without calling reload(). The balance used for subsequent
+calculations reflects the pre-transfer state, which can cause:
+- Incorrect share issuance (protocol thinks tokens were not received)
+- Double-spend opportunities (balance appears unchanged after withdrawal CPI)
+- Incorrect liquidation thresholds (price/balance oracle uses stale value)
+
+Fix: Call .reload()? on any Account<'info, TokenAccount> that may have been
+modified by a CPI, immediately after the CPI returns.
+
+=== AUDIT CHECKLIST: SOLANA PROGRAM SECURITY ===
+
+For each instruction in a Solana program, verify:
+[ ] All privileged accounts use Signer<'info> with has_one or address constraints
+[ ] All external accounts use typed wrappers (Account<Mint>, Account<TokenAccount>)
+[ ] All token account usages include token::mint and token::authority constraints
+[ ] All u64 arithmetic uses checked_mul/checked_add/checked_sub/checked_div
+[ ] All PDA derivations use Anchor's seeds+bump or find_program_address (never create_program_address with external input)
+[ ] All CPIs are followed by reload() on any account the CPI may have modified
+[ ] account_info.key() comparisons are replaced by typed account + constraint

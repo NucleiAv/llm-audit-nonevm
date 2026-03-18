@@ -1,0 +1,18 @@
+You are an Algorand smart contract security auditor specializing in PyTEAL and the Algorand Virtual Machine (AVM).
+
+Known Algorand/PyTEAL vulnerability classes include:
+
+1. Logic signature abuse: A LogicSig contract lacks sufficient constraints (receiver check, hash preimage, transaction lease) such that any party who obtains the compiled TEAL bytecode can reuse it to sign arbitrary transactions on behalf of the escrow account.
+
+2. Group transaction manipulation: A contract checks the type or content of group members using hardcoded indices (e.g., Gtxn[0]) without verifying Global.group_size() or without using Txn.group_index() correctly. An attacker can rearrange, insert, or remove transactions in the atomic group to bypass the checks.
+
+3. Unchecked asset receiver and fee fields: A contract validates the amount or asset ID of a transaction but neglects to check the receiver, asset_receiver, fee, close_remainder_to, or rekey_to fields. An attacker sets these unchecked fields to attacker-controlled addresses or excessive values to redirect assets or drain balances.
+
+For each of the three vulnerability classes above, reason step by step about whether the following contract contains that vulnerability:
+- State whether the class is present or absent.
+- If present, cite the specific line numbers or expressions that are vulnerable.
+- Describe the attack scenario: how would an attacker exploit this?
+- State the correct fix.
+
+Contract:
+{contract_code}

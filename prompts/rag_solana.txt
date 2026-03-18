@@ -1,0 +1,16 @@
+The following security reference material has been retrieved as context relevant to this contract:
+
+--- RETRIEVED CONTEXT START ---
+{retrieved_context}
+--- RETRIEVED CONTEXT END ---
+
+Given the above security references, analyze the following Solana smart contract (Rust/Anchor) for vulnerabilities matching the patterns described in the context. For each vulnerability found:
+1. Identify the vulnerability class by name.
+2. Point to the specific vulnerable lines or struct fields.
+3. Describe the attack scenario concisely.
+4. Recommend the correct fix, citing the relevant reference if applicable.
+
+Also report any vulnerability present in the contract that is NOT covered by the retrieved context.
+
+Contract:
+{contract_code}

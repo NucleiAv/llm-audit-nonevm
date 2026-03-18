@@ -1,0 +1,112 @@
+SOURCE: Anchor Framework Security Documentation and coral-xyz/sealevel-attacks
+URL: https://github.com/coral-xyz/sealevel-attacks
+
+=== ANCHOR ACCOUNT TYPES AND SECURITY GUARANTEES ===
+
+Anchor provides typed account wrappers that enforce security invariants at
+deserialization time. Understanding which type to use is fundamental to
+writing secure Solana programs.
+
+AccountInfo<'info>
+  The raw Solana account type. Provides no guarantees. Does not verify:
+  - That the account signed the transaction
+  - That the account is owned by a specific program
+  - That the account's discriminator matches a known struct
+  - That the account's key matches an expected value
+  Use only when you need maximum flexibility and handle all checks manually.
+
+Signer<'info>
+  Wraps AccountInfo and adds a runtime check that the account's is_signer
+  flag is set in the transaction. If the account did not sign, the
+  instruction returns an error before the instruction body is reached.
+  Use for any account that must have authorized the transaction.
+
+Account<'info, T>
+  Deserializes the account data as type T and verifies:
+  - The account is owned by the currently executing program (for Anchor types)
+  - For external types (Mint, TokenAccount), ownership by the relevant program
+  - The 8-byte discriminator matches the expected type T
+  Use for all program-owned accounts where you need typed access.
+
+Program<'info, T>
+  Verifies that the account is an executable program and its key matches T.
+  Use for program accounts passed in (e.g., token_program, system_program).
+
+=== CONSTRAINTS ===
+
+Anchor constraints are attributes on account fields that add compile-time
+checked validations. Key constraints for security:
+
+has_one = field_name
+  Checks that the account's stored pubkey field equals the key of another
+  account in the same Context. Example:
+    #[account(has_one = authority)]
+    pub state: Account<'info, State>,
+    pub authority: Signer<'info>,
+  This ensures state.authority == authority.key().
+
+address = expr
+  Checks that the account's key equals the given expression. Example:
+    #[account(address = state.treasury)]
+    pub treasury: Account<'info, TokenAccount>,
+
+seeds = [...], bump
+  Derives a PDA from seeds and verifies the account matches. Anchor uses
+  find_program_address to get the canonical bump. Example:
+    #[account(seeds = [b"config", user.key().as_ref()], bump = config.bump)]
+    pub config: Account<'info, Config>,
+
+bump = expr
+  When used with seeds, specifies the stored bump to use for verification.
+  The stored bump must have been originally derived from find_program_address.
+
+token::mint = mint_account, token::authority = auth_account
+  For TokenAccount types, verifies the mint and authority match expected values.
+
+owner = expr
+  Checks the account's owner (program that owns the account data) equals expr.
+
+=== COMMON ANCHOR SECURITY PATTERNS ===
+
+Pattern 1: Admin authority check
+  #[account(mut, has_one = admin)]
+  pub state: Account<'info, State>,
+  pub admin: Signer<'info>,
+
+Pattern 2: PDA with canonical bump
+  // At init:
+  #[account(init, seeds = [b"vault", user.key().as_ref()], bump, payer = user, space = 8 + Vault::SIZE)]
+  pub vault: Account<'info, Vault>,
+  // vault.bump = *ctx.bumps.get("vault").unwrap();
+
+  // On subsequent calls:
+  #[account(seeds = [b"vault", user.key().as_ref()], bump = vault.bump)]
+  pub vault: Account<'info, Vault>,
+
+Pattern 3: Token account validation
+  #[account(mut, token::mint = accepted_mint, token::authority = user)]
+  pub user_token: Account<'info, TokenAccount>,
+  #[account(address = state.accepted_mint)]
+  pub accepted_mint: Account<'info, Mint>,
+
+=== SEALEVEL ATTACKS REFERENCE ===
+
+The coral-xyz/sealevel-attacks repository documents common attack patterns
+with vulnerable and secure code examples. Attack types covered:
+
+- account-types: Passing wrong account type (AccountInfo vs typed wrapper)
+- account-data-matching: Missing address/key validation
+- arbitrary-cpi: Calling unverified external programs
+- bump-seed-canonicalization: Non-canonical bump seed acceptance
+- closing-accounts: Account closure without lamport zeroing
+- duplicate-mutable-accounts: Same account passed twice with different semantics
+- initialization: Missing discriminator check enabling account reuse
+- integer-overflow: Unchecked u64 arithmetic
+- pda-sharing: Multiple programs sharing PDA seeds (unintended access)
+- reinitialization: Re-initializing already-initialized accounts
+- signer-authorization: Missing Signer<'info> for privileged accounts
+- type-cosplay: Passing account of one type where another is expected
+
+Each attack in the repository includes:
+- insecure/: The vulnerable version of the program
+- secure/: The fixed version with Anchor constraints or manual checks

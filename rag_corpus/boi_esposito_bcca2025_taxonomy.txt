@@ -1,0 +1,111 @@
+SOURCE: Boi, B. and Esposito, C. (2025). "Prompt Engineering vs. Fine-Tuning for
+LLM-Based Vulnerability Detection in Solana and Algorand Smart Contracts."
+2025 7th International Conference on Blockchain Computing and Applications (BCCA).
+DOI: 10.1109/BCCA66705.2025.11229457
+
+=== VULNERABILITY TAXONOMY FROM BOI & ESPOSITO (BCCA 2025) ===
+
+This paper provides the first published LLM-based vulnerability detection
+study targeting Solana (Rust/Anchor) and Algorand (PyTEAL/AVM). The following
+taxonomy is drawn from their Section III (Vulnerability Classification).
+
+--- SOLANA VULNERABILITY CLASSES ---
+
+SC-V1: Missing Signer Verification
+  Definition: An instruction that modifies privileged state does not verify
+  that the authorizing account signed the transaction. The Anchor framework
+  does not automatically enforce signing for AccountInfo fields.
+  OWASP SWC mapping: Access Control
+  Real-world examples: Multiple Anchor program audits (Sec3, OtterSec, Neodyme)
+  Detection indicator: AccountInfo used where Signer<'info> is required;
+  no has_one constraint linking a Signer to stored authority.
+
+SC-V2: Account Data Confusion
+  Definition: A program receives accounts as raw AccountInfo without validating
+  their owner program, discriminator, or specific key. An attacker substitutes
+  an account of the same size or type but different semantic meaning.
+  OWASP SWC mapping: Input Validation
+  Real-world examples: Cashio exploit ($52M, March 2022)
+  Detection indicator: AccountInfo used for accounts that should be typed
+  (Mint, TokenAccount); missing address= or token::mint= constraints.
+
+SC-V3: Unchecked Arithmetic (Integer Overflow)
+  Definition: u64 arithmetic in release builds wraps silently on overflow.
+  Exploitable when a user-supplied value can cause multiplication or addition
+  to overflow, affecting balance, share price, or fee calculations.
+  OWASP SWC mapping: Integer Overflow (OWASP SC Top 10 2025, #3)
+  Real-world examples: Numerous DeFi protocols (documented in Sec3 audit reports)
+  Detection indicator: Direct multiplication/addition of u64 values without
+  .checked_mul(), .checked_add(), or equivalent safe arithmetic.
+
+SC-V4: Non-Canonical PDA Bump
+  Definition: A PDA is derived or verified using create_program_address with
+  a caller-supplied bump nonce instead of using find_program_address to
+  obtain the canonical bump. Multiple valid PDAs can exist for the same seed.
+  OWASP SWC mapping: Authorization
+  Real-world examples: Documented in sealevel-attacks repository
+  Detection indicator: create_program_address called with external bump input;
+  bump parameter accepted from transaction data without canonicalization check.
+
+SC-V5: Stale Account State Post-CPI
+  Definition: After a Cross-Program Invocation that modifies an account,
+  the caller reads account fields without calling reload() first. The stale
+  pre-CPI data is used for critical computations.
+  OWASP SWC mapping: State Management
+  Real-world examples: Documented in Anchor security documentation
+  Detection indicator: Account field access (e.g., vault.amount) after a
+  CPI that may have modified that account, without an intervening reload().
+
+--- ALGORAND VULNERABILITY CLASSES ---
+
+AL-V1: Logic Signature Reuse Attack
+  Definition: A LogicSig TEAL program that approves transactions without
+  binding them to a specific authorized party (via hash preimage, receiver
+  constraint, or lease) can be reused by any party who obtains the bytecode.
+  OWASP SWC mapping: Access Control
+  Real-world examples: De Angelis et al. (IEEE DAPPS 2022) security evaluation
+  Detection indicator: LogicSig lacks Sha256(Arg(0)) check, lease check,
+  or receiver == FIXED_ADDRESS constraint.
+
+AL-V2: Atomic Group Composition Attack
+  Definition: A contract validates group member types by fixed index without
+  asserting the group size. An attacker rearranges or inserts transactions
+  to shift indices, causing type checks to pass for wrong transactions.
+  OWASP SWC mapping: Input Validation
+  Real-world examples: Algorand Foundation security advisory
+  Detection indicator: Global.group_size() not asserted; Gtxn[i] index
+  references without corresponding group size constraint; use of
+  Txn.group_index() - Int(1) without guard against group_index == 0.
+
+AL-V3: Unchecked Transaction Field Values
+  Definition: A contract validates some transaction fields (amount, asset ID)
+  but omits checks on receiver, asset_receiver, fee, close_remainder_to,
+  rekey_to, or asset_close_to. These unchecked fields allow attackers to
+  redirect funds or drain accounts as side effects of approved transactions.
+  OWASP SWC mapping: Input Validation / Access Control
+  Real-world examples: Documented in Algorand Developer Portal security guide
+  Detection indicator: Payment or AssetTransfer transaction in atomic group
+  where any of receiver, fee, close_remainder_to, rekey_to, or
+  asset_close_to is not explicitly constrained.
+
+=== KEY FINDINGS FROM BOI & ESPOSITO (BCCA 2025) ===
+
+1. Prompt engineering outperforms zero-shot on non-EVM code: structured
+   prompts that enumerate vulnerability classes improve detection rates
+   significantly compared to generic security review prompts.
+
+2. Algorand (TEAL/PyTEAL) is harder than Solana for LLMs: TEAL is a
+   lower-level language with less representation in LLM pre-training data.
+   Open-source models struggle with TEAL more than with Rust/Anchor.
+
+3. Fine-tuning benefits are chain-specific: fine-tuning improved results
+   primarily for Algorand, where model comprehension of TEAL is more limited
+   under prompt engineering alone. For Solana, prompt engineering alone
+   achieved competitive results with fine-tuned models.
+
+4. Models tested: LLaMA 3 and DeepSeek R1 (open-source only). Frontier
+   commercial models (GPT-4o, Claude) were not evaluated. The authors
+   note this as a limitation and direction for future work.
+
+5. Dataset limitation: synthetic datasets only (5 vulnerable + 5 non-vulnerable
+   per class). Detection rates on real contracts from audit reports may differ.
