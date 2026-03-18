@@ -32,7 +32,13 @@ def chunk_documents(docs: list[dict], chunk_size: int) -> list[dict]:
         words = doc["text"].split()
         for i in range(0, len(words), chunk_size):
             chunk_text = " ".join(words[i : i + chunk_size])
-            chunks.append({"source": doc["source"], "text": chunk_text, "chunk_index": i // chunk_size})
+            chunks.append(
+                {
+                    "source": doc["source"],
+                    "text": chunk_text,
+                    "chunk_index": i // chunk_size,
+                }
+            )
     logging.info("created %d chunks from %d documents", len(chunks), len(docs))
     return chunks
 

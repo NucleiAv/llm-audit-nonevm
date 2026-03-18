@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import pickle
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,7 +36,13 @@ CHAIN_EXTENSIONS = {
 }
 
 VULN_CLASSES = {
-    "solana": ["v1_missing_signer", "v2_account_confusion", "v3_arithmetic_overflow", "v4_bump_seed", "v5_stale_cpi"],
+    "solana": [
+        "v1_missing_signer",
+        "v2_account_confusion",
+        "v3_arithmetic_overflow",
+        "v4_bump_seed",
+        "v5_stale_cpi",
+    ],
     "algorand": ["v6_logsig_abuse", "v7_group_tx", "v8_unchecked_fields"],
 }
 
@@ -77,11 +82,15 @@ def retrieve_context(client: OpenAI, contract_code: str, top_k: int) -> str:
     return "\n\n---\n\n".join(retrieved)
 
 
-def build_prompt(strategy: str, chain: str, contract_code: str, openai_client: OpenAI) -> str:
+def build_prompt(
+    strategy: str, chain: str, contract_code: str, openai_client: OpenAI
+) -> str:
     template = load_prompt_template(strategy, chain)
     if strategy == "rag":
         context = retrieve_context(openai_client, contract_code, RAG_TOP_K)
-        return template.replace("{retrieved_context}", context).replace("{contract_code}", contract_code)
+        return template.replace("{retrieved_context}", context).replace(
+            "{contract_code}", contract_code
+        )
     return template.replace("{contract_code}", contract_code)
 
 
@@ -105,6 +114,7 @@ def call_claude(client: anthropic.Anthropic, prompt: str, model_version: str) ->
 
 def call_codellama(prompt: str, model_version: str, together_api_key: str) -> str:
     from openai import OpenAI as TogetherClient
+
     client = TogetherClient(
         api_key=together_api_key,
         base_url="https://api.together.xyz/v1",
@@ -130,7 +140,9 @@ def run_single(
     dry_run: bool,
 ) -> dict:
     ext = CHAIN_EXTENSIONS[chain]
-    contract_path = CONTRACTS_DIR / chain / "vulnerable" / f"{vuln_class}_{instance}{ext}"
+    contract_path = (
+        CONTRACTS_DIR / chain / "vulnerable" / f"{vuln_class}_{instance}{ext}"
+    )
     contract_code = load_contract(contract_path)
     prompt = build_prompt(strategy, chain, contract_code, openai_client)
 
@@ -158,7 +170,9 @@ def run_single(
         response_text = call_claude(anthropic_client, prompt, model_version)
     elif model_key == "codellama":
         if not together_api_key:
-            raise ValueError("TOGETHER_API_KEY environment variable is not set for CodeLlama")
+            raise ValueError(
+                "TOGETHER_API_KEY environment variable is not set for CodeLlama"
+            )
         response_text = call_codellama(prompt, model_version, together_api_key)
     else:
         raise ValueError(f"Unknown model key: {model_key}")
@@ -184,13 +198,15 @@ def enumerate_all_runs() -> list[dict]:
             for instance in INSTANCES:
                 for strategy in STRATEGIES:
                     for model_key in MODELS:
-                        runs.append({
-                            "chain": chain,
-                            "vuln_class": vuln_class,
-                            "instance": instance,
-                            "strategy": strategy,
-                            "model_key": model_key,
-                        })
+                        runs.append(
+                            {
+                                "chain": chain,
+                                "vuln_class": vuln_class,
+                                "instance": instance,
+                                "strategy": strategy,
+                                "model_key": model_key,
+                            }
+                        )
     return runs
 
 
@@ -213,12 +229,18 @@ def check_missing() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run LLM vulnerability detection experiments")
+    parser = argparse.ArgumentParser(
+        description="Run LLM vulnerability detection experiments"
+    )
     parser.add_argument("--contract", help="Single contract file path for targeted run")
     parser.add_argument("--strategy", choices=STRATEGIES, help="Prompting strategy")
     parser.add_argument("--model", choices=list(MODELS.keys()), help="Model key")
-    parser.add_argument("--dry-run", action="store_true", help="Build prompt but skip API call")
-    parser.add_argument("--check-missing", action="store_true", help="List missing run outputs")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Build prompt but skip API call"
+    )
+    parser.add_argument(
+        "--check-missing", action="store_true", help="List missing run outputs"
+    )
     args = parser.parse_args()
 
     if args.check_missing:
@@ -244,11 +266,19 @@ def main() -> None:
         contract_path = Path(args.contract)
         parts = contract_path.stem.split("_")
         chain = "solana" if contract_path.suffix == ".rs" else "algorand"
-        vuln_class = "_".join(parts[:2])
+        # vuln_class is always 3 parts: v{n}_{word}_{word}
+        vuln_class = "_".join(parts[:3])
         instance = parts[-1]
         run_single(
-            chain, vuln_class, instance, args.strategy, args.model,
-            openai_client, anthropic_client, together_key, args.dry_run,
+            chain,
+            vuln_class,
+            instance,
+            args.strategy,
+            args.model,
+            openai_client,
+            anthropic_client,
+            together_key,
+            args.dry_run,
         )
         return
 
@@ -265,9 +295,15 @@ def main() -> None:
         logging.info("[%d/%d] running: %s", i, len(all_runs), output_fname)
         try:
             run_single(
-                run["chain"], run["vuln_class"], run["instance"],
-                run["strategy"], run["model_key"],
-                openai_client, anthropic_client, together_key, args.dry_run,
+                run["chain"],
+                run["vuln_class"],
+                run["instance"],
+                run["strategy"],
+                run["model_key"],
+                openai_client,
+                anthropic_client,
+                together_key,
+                args.dry_run,
             )
         except Exception as exc:
             logging.error("failed %s: %s", output_fname, exc)

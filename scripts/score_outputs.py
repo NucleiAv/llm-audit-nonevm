@@ -31,19 +31,71 @@ RAW_DIR = RESULTS_DIR / "raw_outputs"
 SCORES_CSV = RESULTS_DIR / "scores.csv"
 
 CSV_HEADERS = [
-    "filename", "chain", "vuln_class", "instance", "strategy", "model",
-    "DR", "FPR", "EQS", "RC", "notes",
+    "filename",
+    "chain",
+    "vuln_class",
+    "instance",
+    "strategy",
+    "model",
+    "DR",
+    "FPR",
+    "EQS",
+    "RC",
+    "notes",
 ]
 
 VULN_CLASS_KEYWORDS = {
-    "v1_missing_signer": ["missing signer", "signer check", "AccountInfo", "Signer<'info>", "has_one"],
-    "v2_account_confusion": ["account confusion", "type confusion", "owner check", "account validation", "collateral"],
-    "v3_arithmetic_overflow": ["overflow", "integer overflow", "checked_mul", "wrapping", "arithmetic"],
-    "v4_bump_seed": ["bump seed", "canonical bump", "create_program_address", "find_program_address", "PDA"],
-    "v5_stale_cpi": ["stale", "CPI", "reload", "cross-program invocation", "stale account"],
+    "v1_missing_signer": [
+        "missing signer",
+        "signer check",
+        "AccountInfo",
+        "Signer<'info>",
+        "has_one",
+    ],
+    "v2_account_confusion": [
+        "account confusion",
+        "type confusion",
+        "owner check",
+        "account validation",
+        "collateral",
+    ],
+    "v3_arithmetic_overflow": [
+        "overflow",
+        "integer overflow",
+        "checked_mul",
+        "wrapping",
+        "arithmetic",
+    ],
+    "v4_bump_seed": [
+        "bump seed",
+        "canonical bump",
+        "create_program_address",
+        "find_program_address",
+        "PDA",
+    ],
+    "v5_stale_cpi": [
+        "stale",
+        "CPI",
+        "reload",
+        "cross-program invocation",
+        "stale account",
+    ],
     "v6_logsig_abuse": ["logic signature", "LogicSig", "reuse", "replay", "logsig"],
-    "v7_group_tx": ["group transaction", "group index", "group_size", "atomic group", "Gtxn"],
-    "v8_unchecked_fields": ["unchecked", "receiver", "fee", "close_remainder_to", "asset_receiver", "rekey_to"],
+    "v7_group_tx": [
+        "group transaction",
+        "group index",
+        "group_size",
+        "atomic group",
+        "Gtxn",
+    ],
+    "v8_unchecked_fields": [
+        "unchecked",
+        "receiver",
+        "fee",
+        "close_remainder_to",
+        "asset_receiver",
+        "rekey_to",
+    ],
 }
 
 EVM_HALLUCINATIONS = [
@@ -61,20 +113,38 @@ EVM_HALLUCINATIONS = [
 ]
 
 
+_KNOWN_VULN_CLASSES = [
+    "v1_missing_signer",
+    "v2_account_confusion",
+    "v3_arithmetic_overflow",
+    "v4_bump_seed",
+    "v5_stale_cpi",
+    "v6_logsig_abuse",
+    "v7_group_tx",
+    "v8_unchecked_fields",
+]
+_KNOWN_STRATEGIES = ["zero_shot", "cot", "rag"]
+_KNOWN_MODELS = ["gpt-4o", "claude-3-7", "codellama"]
+
+
 def parse_filename(filename: str) -> dict:
     stem = Path(filename).stem
-    parts = stem.split("_")
-    chain = parts[0]
-    if chain == "solana":
-        vuln_class = "_".join(parts[1:3])
-        instance = parts[3]
-        strategy = parts[4]
-        model = "_".join(parts[5:])
-    else:
-        vuln_class = "_".join(parts[1:3])
-        instance = parts[3]
-        strategy = parts[4]
-        model = "_".join(parts[5:])
+    chain = stem.split("_")[0]
+    vuln_class = next((vc for vc in _KNOWN_VULN_CLASSES if f"_{vc}_" in stem), None)
+    if vuln_class is None:
+        raise ValueError(f"Could not parse vuln_class from filename: {filename}")
+    remainder = stem[len(chain) + 1 + len(vuln_class) + 1 :]
+    # remainder is now: {instance}_{strategy}_{model}
+    instance = remainder.split("_")[0]
+    after_instance = remainder[len(instance) + 1 :]
+    strategy = next(
+        (s for s in _KNOWN_STRATEGIES if after_instance.startswith(s)), None
+    )
+    if strategy is None:
+        raise ValueError(f"Could not parse strategy from filename: {filename}")
+    model = after_instance[len(strategy) + 1 :]
+    if model not in _KNOWN_MODELS:
+        raise ValueError(f"Unknown model '{model}' in filename: {filename}")
     return {
         "chain": chain,
         "vuln_class": vuln_class,
@@ -102,9 +172,17 @@ def auto_score_eqs(response: str, vuln_class: str, dr: int) -> int:
     if dr == 0:
         return 1
     response_lower = response.lower()
-    has_location = bool(re.search(r"line\s+\d+|fn\s+\w+|pub\s+\w+|Gtxn\[\d+\]|Txn\.", response_lower))
-    has_attack = any(w in response_lower for w in ["attacker", "exploit", "bypass", "attack scenario"])
-    has_fix = any(w in response_lower for w in ["fix", "recommend", "should", "replace", "use signer", "checked_"])
+    has_location = bool(
+        re.search(r"line\s+\d+|fn\s+\w+|pub\s+\w+|Gtxn\[\d+\]|Txn\.", response_lower)
+    )
+    has_attack = any(
+        w in response_lower
+        for w in ["attacker", "exploit", "bypass", "attack scenario"]
+    )
+    has_fix = any(
+        w in response_lower
+        for w in ["fix", "recommend", "should", "replace", "use signer", "checked_"]
+    )
     score = 2
     if has_location:
         score = 3
@@ -169,7 +247,9 @@ def main() -> None:
     existing = load_existing_scores()
     all_json = sorted(RAW_DIR.glob("*.json"))
     if not all_json:
-        raise FileNotFoundError(f"No JSON files found in {RAW_DIR}. Run run_experiments.py first.")
+        raise FileNotFoundError(
+            f"No JSON files found in {RAW_DIR}. Run run_experiments.py first."
+        )
 
     rows = []
     for json_path in all_json:
@@ -179,7 +259,13 @@ def main() -> None:
         try:
             row = score_single_file(json_path)
             rows.append(row)
-            logging.info("scored %s (DR=%s, EQS=%s, RC=%s)", json_path.name, row["DR"], row["EQS"], row["RC"])
+            logging.info(
+                "scored %s (DR=%s, EQS=%s, RC=%s)",
+                json_path.name,
+                row["DR"],
+                row["EQS"],
+                row["RC"],
+            )
         except Exception as exc:
             logging.error("failed to score %s: %s", json_path.name, exc)
 

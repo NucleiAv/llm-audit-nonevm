@@ -27,7 +27,11 @@ REPO_ROOT = Path(__file__).parent.parent
 SCORES_CSV = REPO_ROOT / "results" / "scores.csv"
 FIGURES_DIR = REPO_ROOT / "figures"
 
-MODEL_LABELS = {"gpt-4o": "GPT-4o", "claude-3-7": "Claude 3.7", "codellama": "CodeLlama"}
+MODEL_LABELS = {
+    "gpt-4o": "GPT-4o",
+    "claude-3-7": "Claude 3.7",
+    "codellama": "CodeLlama",
+}
 MODEL_COLORS = {"gpt-4o": "#2166ac", "claude-3-7": "#4dac26", "codellama": "#888888"}
 STRATEGY_LABELS = {"zero_shot": "Zero-Shot", "cot": "Chain-of-Thought", "rag": "RAG"}
 CHAIN_LABELS = {"solana": "Solana (Rust/Anchor)", "algorand": "Algorand (PyTEAL)"}
@@ -59,7 +63,9 @@ def load_scores() -> pd.DataFrame:
 
 
 def fig1_detection_rate(df: pd.DataFrame, out_dir: Path) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(COLUMN_WIDTH_INCHES * 2.5, 3.5), sharey=True)
+    fig, axes = plt.subplots(
+        1, 2, figsize=(COLUMN_WIDTH_INCHES * 2.5, 3.5), sharey=True
+    )
     strategies = ["zero_shot", "cot", "rag"]
     models = ["gpt-4o", "claude-3-7", "codellama"]
     x = np.arange(len(strategies))
@@ -71,7 +77,9 @@ def fig1_detection_rate(df: pd.DataFrame, out_dir: Path) -> None:
             means = []
             stds = []
             for strategy in strategies:
-                vals = chain_df[(chain_df["strategy"] == strategy) & (chain_df["model"] == model)]["DR"].dropna()
+                vals = chain_df[
+                    (chain_df["strategy"] == strategy) & (chain_df["model"] == model)
+                ]["DR"].dropna()
                 means.append(vals.mean() * 100 if len(vals) > 0 else 0)
                 stds.append(vals.std() * 100 if len(vals) > 1 else 0)
             ax.bar(
@@ -92,7 +100,14 @@ def fig1_detection_rate(df: pd.DataFrame, out_dir: Path) -> None:
         ax.yaxis.set_tick_params(labelsize=8)
 
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=3, fontsize=8, bbox_to_anchor=(0.5, 1.02))
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=3,
+        fontsize=8,
+        bbox_to_anchor=(0.5, 1.02),
+    )
     fig.tight_layout()
     out_path = out_dir / "fig1_detection_rate_by_strategy.png"
     fig.savefig(out_path, dpi=DPI, bbox_inches="tight")
@@ -102,7 +117,9 @@ def fig1_detection_rate(df: pd.DataFrame, out_dir: Path) -> None:
 
 def fig2_strategy_heatmap(df: pd.DataFrame, out_dir: Path) -> None:
     strategy_model_cols = [
-        f"{s}_{m}" for s in ["zero_shot", "cot", "rag"] for m in ["gpt-4o", "claude-3-7", "codellama"]
+        f"{s}_{m}"
+        for s in ["zero_shot", "cot", "rag"]
+        for m in ["gpt-4o", "claude-3-7", "codellama"]
     ]
     vuln_classes = list(VULN_CLASS_SHORT.keys())
 
@@ -119,7 +136,11 @@ def fig2_strategy_heatmap(df: pd.DataFrame, out_dir: Path) -> None:
             else:
                 model = parts[-1]
                 strategy = "_".join(parts[:-1])
-            subset = df[(df["vuln_class"] == vc) & (df["strategy"] == strategy) & (df["model"] == model)]["DR"].dropna()
+            subset = df[
+                (df["vuln_class"] == vc)
+                & (df["strategy"] == strategy)
+                & (df["model"] == model)
+            ]["DR"].dropna()
             matrix[row_i, col_j] = subset.mean() * 100 if len(subset) > 0 else 0
 
     col_labels = [
@@ -164,11 +185,21 @@ def fig3_fpr_comparison(df: pd.DataFrame, out_dir: Path) -> None:
     for i, model in enumerate(models):
         means = []
         for strategy in strategies:
-            vals = fpr_df[(fpr_df["strategy"] == strategy) & (fpr_df["model"] == model)]["FPR"].dropna()
+            vals = fpr_df[
+                (fpr_df["strategy"] == strategy) & (fpr_df["model"] == model)
+            ]["FPR"].dropna()
             means.append(vals.mean() if len(vals) > 0 else 0)
-        ax.bar(x + i * width, means, width, label=MODEL_LABELS[model], color=MODEL_COLORS[model])
+        ax.bar(
+            x + i * width,
+            means,
+            width,
+            label=MODEL_LABELS[model],
+            color=MODEL_COLORS[model],
+        )
 
-    ax.axhline(y=0.10, linestyle="--", color="red", linewidth=1, label="FPR = 0.10 threshold")
+    ax.axhline(
+        y=0.10, linestyle="--", color="red", linewidth=1, label="FPR = 0.10 threshold"
+    )
     ax.set_xticks(x + width)
     ax.set_xticklabels([STRATEGY_LABELS[s] for s in strategies], fontsize=9)
     ax.set_ylim(0, 1.05)
@@ -210,7 +241,8 @@ def fig4_coverage_gap(out_dir: Path) -> None:
     ]
     ax.legend(handles=legend_patches, fontsize=7, loc="lower right")
     ax.text(
-        0.01, -0.18,
+        0.01,
+        -0.18,
         "Source: Li et al. (2025), arXiv:2504.07419",
         transform=ax.transAxes,
         fontsize=6,
@@ -231,14 +263,18 @@ def fig5_pipeline_diagram(out_dir: Path) -> None:
 
     def box(x, y, w, h, label, color="#d0e4f7"):
         rect = mpatches.FancyBboxPatch(
-            (x, y), w, h,
+            (x, y),
+            w,
+            h,
             boxstyle="round,pad=0.05",
             linewidth=0.8,
             edgecolor="#333333",
             facecolor=color,
         )
         ax.add_patch(rect)
-        ax.text(x + w / 2, y + h / 2, label, ha="center", va="center", fontsize=7, wrap=True)
+        ax.text(
+            x + w / 2, y + h / 2, label, ha="center", va="center", fontsize=7, wrap=True
+        )
 
     def arrow(x1, y1, x2, y2):
         ax.annotate(
@@ -250,7 +286,14 @@ def fig5_pipeline_diagram(out_dir: Path) -> None:
 
     box(0.2, 4.5, 2.0, 0.8, "Contract Corpus\n(24 instances)", color="#e8f4e8")
     box(0.2, 3.0, 2.0, 0.8, "RAG Corpus\n(5 documents)", color="#fff3cd")
-    box(3.0, 4.0, 2.0, 1.6, "Prompting\nStrategies\nZero-Shot / CoT / RAG", color="#d0e4f7")
+    box(
+        3.0,
+        4.0,
+        2.0,
+        1.6,
+        "Prompting\nStrategies\nZero-Shot / CoT / RAG",
+        color="#d0e4f7",
+    )
     box(6.0, 4.8, 1.5, 0.6, "GPT-4o", color="#c8e6c9")
     box(6.0, 3.9, 1.5, 0.6, "Claude 3.7", color="#c8e6c9")
     box(6.0, 3.0, 1.5, 0.6, "CodeLlama", color="#c8e6c9")
@@ -286,7 +329,9 @@ def fig6_eqs_distribution(df: pd.DataFrame, out_dir: Path) -> None:
     data_by_strategy = [
         eqs_df[eqs_df["strategy"] == s]["EQS"].dropna().tolist() for s in strategies
     ]
-    parts = ax.violinplot(data_by_strategy, positions=range(len(strategies)), showmedians=True)
+    parts = ax.violinplot(
+        data_by_strategy, positions=range(len(strategies)), showmedians=True
+    )
     for i, pc in enumerate(parts["bodies"]):
         pc.set_facecolor(["#2166ac", "#4dac26", "#e66101"][i])
         pc.set_alpha(0.7)
