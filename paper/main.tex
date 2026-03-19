@@ -344,7 +344,7 @@ total of $24 \times 3 \times 3 = 216$ experimental runs.
   \item GPT-4o (\texttt{gpt-4o-2024-08-06}): OpenAI's frontier multimodal model.
   \item Claude Sonnet~4 (\texttt{claude-sonnet-4-20250514}): Anthropic's
     latest code-capable model at time of experimentation.
-  \item Llama-3.3-70B-Instruct (\texttt{meta-llama/Llama-3.3-70B-Instruct-Turbo}):
+  \item Llama-3.3-70B-Instruct (\texttt{meta-llama/Llama-3.3-\\70B-Instruct-Turbo}):
     Meta's open-weights instruction model; served via Together~AI serverless.
 \end{itemize}
 All models are queried at temperature 0 to ensure deterministic outputs.
@@ -470,7 +470,7 @@ model, split by chain.
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/fig1_detection_rate_by_strategy.png}
+\includegraphics[width=\columnwidth]{figures/fig1_detection_rate_by_strategy.png}
 \caption{Average detection rate by prompting strategy and model for Solana
 (left) and Algorand (right) vulnerability classes. Error bars show standard
 deviation across vulnerability classes.}
@@ -493,7 +493,7 @@ vulnerability class and strategy-model combination.
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/fig2_strategy_heatmap.png}
+\includegraphics[width=\columnwidth]{figures/fig2_strategy_heatmap.png}
 \caption{Detection rate (\%) by vulnerability class (rows) and
 strategy-model combination (columns).}
 \label{fig:heatmap}
@@ -564,7 +564,7 @@ criterion for production deployment.
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/fig3_fpr_comparison.png}
+\includegraphics[width=\columnwidth]{figures/fig3_fpr_comparison.png}
 \caption{False positive rate by prompting strategy and model on patched
 contracts. Dashed line: FPR~$= 0.10$ acceptability threshold.}
 \label{fig:fpr}
@@ -578,7 +578,7 @@ motivates the benchmark~\cite{li2025solana}.
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/fig4_coverage_gap.png}
+\includegraphics[width=\columnwidth]{figures/fig4_coverage_gap.png}
 \caption{Number of published LLM-based audit tools by blockchain ecosystem.
 Ethereum is saturated; Solana is partially covered; Algorand has effectively
 no dedicated LLM tooling. Source:~\cite{li2025solana}.}
@@ -591,7 +591,7 @@ Figure~\ref{fig:pipeline} illustrates the end-to-end experimental pipeline.
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/fig5_pipeline_diagram.png}
+\includegraphics[width=\columnwidth]{figures/fig5_pipeline_diagram.png}
 \caption{Experimental pipeline: contracts and RAG corpus feed into prompting
 strategies, which query three LLMs to produce 216 JSON outputs, which are
 scored to produce the results table and six figures.}
@@ -613,7 +613,7 @@ for correctly detected vulnerabilities (DR~$= 1$ runs only).
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/fig6_eqs_distribution.png}
+\includegraphics[width=\columnwidth]{figures/fig6_eqs_distribution.png}
 \caption{Distribution of explanation quality scores (EQS 1 to 5) by prompting
 strategy, restricted to runs where the vulnerability was correctly detected
 (DR~$= 1$).}
