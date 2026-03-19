@@ -29,8 +29,8 @@ FIGURES_DIR = REPO_ROOT / "figures"
 
 MODEL_LABELS = {
     "gpt-4o": "GPT-4o",
-    "claude-3-7": "Claude 3.7",
-    "codellama": "CodeLlama",
+    "claude-3-7": "Claude Sonnet 4",
+    "codellama": "Llama-3.3-70B",
 }
 MODEL_COLORS = {"gpt-4o": "#2166ac", "claude-3-7": "#4dac26", "codellama": "#888888"}
 STRATEGY_LABELS = {"zero_shot": "Zero-Shot", "cot": "Chain-of-Thought", "rag": "RAG"}

@@ -24,8 +24,10 @@ RAG_TOP_K = 3
 
 MODELS = {
     "gpt-4o": "gpt-4o-2024-08-06",
-    "claude-3-7": "claude-3-7-sonnet-20250219",
-    "codellama": "codellama/CodeLlama-34b-Instruct-hf",
+    # claude-3-7-sonnet-20250219 reached EOL 2026-02-19; claude-sonnet-4-20250514 is current
+    "claude-3-7": "claude-sonnet-4-20250514",
+    # CodeLlama 34B serverless not available; Llama-3.3-70B is the accessible open model
+    "codellama": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
 }
 
 STRATEGIES = ["zero_shot", "cot", "rag"]
@@ -112,11 +114,12 @@ def call_claude(client: anthropic.Anthropic, prompt: str, model_version: str) ->
     return response.content[0].text
 
 
-def call_codellama(prompt: str, model_version: str, together_api_key: str) -> str:
+def call_codellama(prompt: str, model_version: str, openrouter_api_key: str) -> str:
+    # Open-source model (Llama-3.3-70B) routed through Together AI serverless endpoint
     from openai import OpenAI as TogetherClient
 
     client = TogetherClient(
-        api_key=together_api_key,
+        api_key=openrouter_api_key,
         base_url="https://api.together.xyz/v1",
     )
     response = client.chat.completions.create(
@@ -136,7 +139,7 @@ def run_single(
     model_key: str,
     openai_client: OpenAI,
     anthropic_client: anthropic.Anthropic,
-    together_api_key: str,
+    openrouter_api_key: str,
     dry_run: bool,
 ) -> dict:
     ext = CHAIN_EXTENSIONS[chain]
@@ -169,11 +172,11 @@ def run_single(
     elif model_key == "claude-3-7":
         response_text = call_claude(anthropic_client, prompt, model_version)
     elif model_key == "codellama":
-        if not together_api_key:
+        if not openrouter_api_key:
             raise ValueError(
-                "TOGETHER_API_KEY environment variable is not set for CodeLlama"
+                "TOGETHER_API_KEY environment variable is not set for open-source model"
             )
-        response_text = call_codellama(prompt, model_version, together_api_key)
+        response_text = call_codellama(prompt, model_version, openrouter_api_key)
     else:
         raise ValueError(f"Unknown model key: {model_key}")
 
@@ -253,7 +256,7 @@ def main() -> None:
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     if not anthropic_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
-    together_key = os.environ.get("TOGETHER_API_KEY", "")
+    openrouter_key = os.environ.get("TOGETHER_API_KEY", "")
 
     openai_client = OpenAI(api_key=openai_key)
     anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
@@ -277,7 +280,7 @@ def main() -> None:
             args.model,
             openai_client,
             anthropic_client,
-            together_key,
+            openrouter_key,
             args.dry_run,
         )
         return
@@ -302,7 +305,7 @@ def main() -> None:
                 run["model_key"],
                 openai_client,
                 anthropic_client,
-                together_key,
+                openrouter_key,
                 args.dry_run,
             )
         except Exception as exc:
