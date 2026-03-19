@@ -19,6 +19,7 @@ CONTRACTS_DIR = REPO_ROOT / "contracts"
 PROMPTS_DIR = REPO_ROOT / "prompts"
 RAG_INDEX_DIR = REPO_ROOT / "rag_corpus" / "faiss_index"
 RESULTS_DIR = REPO_ROOT / "results" / "raw_outputs"
+PATCHED_DIR = REPO_ROOT / "results" / "raw_outputs_patched"
 EMBEDDING_MODEL = "text-embedding-3-small"
 RAG_TOP_K = 3
 
@@ -141,16 +142,17 @@ def run_single(
     anthropic_client: anthropic.Anthropic,
     openrouter_api_key: str,
     dry_run: bool,
+    patched: bool = False,
 ) -> dict:
     ext = CHAIN_EXTENSIONS[chain]
-    contract_path = (
-        CONTRACTS_DIR / chain / "vulnerable" / f"{vuln_class}_{instance}{ext}"
-    )
+    variant = "patched" if patched else "vulnerable"
+    contract_path = CONTRACTS_DIR / chain / variant / f"{vuln_class}_{instance}{ext}"
     contract_code = load_contract(contract_path)
     prompt = build_prompt(strategy, chain, contract_code, openai_client)
 
     output_filename = f"{chain}_{vuln_class}_{instance}_{strategy}_{model_key}.json"
-    output_path = RESULTS_DIR / output_filename
+    out_dir = PATCHED_DIR if patched else RESULTS_DIR
+    output_path = out_dir / output_filename
 
     if dry_run:
         logging.info("[dry-run] would write to %s", output_path)
@@ -244,6 +246,11 @@ def main() -> None:
     parser.add_argument(
         "--check-missing", action="store_true", help="List missing run outputs"
     )
+    parser.add_argument(
+        "--patched",
+        action="store_true",
+        help="Run patched contracts (for FPR scoring) instead of vulnerable",
+    )
     args = parser.parse_args()
 
     if args.check_missing:
@@ -262,6 +269,7 @@ def main() -> None:
     anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    PATCHED_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.contract:
         if not args.strategy or not args.model:
@@ -282,17 +290,20 @@ def main() -> None:
             anthropic_client,
             openrouter_key,
             args.dry_run,
+            patched=args.patched,
         )
         return
 
     all_runs = enumerate_all_runs()
-    logging.info("running %d experiments", len(all_runs))
+    out_dir = PATCHED_DIR if args.patched else RESULTS_DIR
+    label = "patched" if args.patched else "vulnerable"
+    logging.info("running %d %s experiments", len(all_runs), label)
     for i, run in enumerate(all_runs, 1):
         output_fname = (
             f"{run['chain']}_{run['vuln_class']}_{run['instance']}"
             f"_{run['strategy']}_{run['model_key']}.json"
         )
-        if (RESULTS_DIR / output_fname).exists():
+        if (out_dir / output_fname).exists():
             logging.info("[%d/%d] skip (exists): %s", i, len(all_runs), output_fname)
             continue
         logging.info("[%d/%d] running: %s", i, len(all_runs), output_fname)
@@ -307,6 +318,7 @@ def main() -> None:
                 anthropic_client,
                 openrouter_key,
                 args.dry_run,
+                patched=args.patched,
             )
         except Exception as exc:
             logging.error("failed %s: %s", output_fname, exc)

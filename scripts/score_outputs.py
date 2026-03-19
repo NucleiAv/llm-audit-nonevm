@@ -28,6 +28,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 REPO_ROOT = Path(__file__).parent.parent
 RESULTS_DIR = REPO_ROOT / "results"
 RAW_DIR = RESULTS_DIR / "raw_outputs"
+PATCHED_DIR = RESULTS_DIR / "raw_outputs_patched"
 SCORES_CSV = RESULTS_DIR / "scores.csv"
 
 CSV_HEADERS = [
@@ -234,10 +235,64 @@ def save_scores(scores: list[dict]) -> None:
     logging.info("wrote %d rows to %s", len(scores), SCORES_CSV)
 
 
+def fill_fpr_from_patched() -> None:
+    """Score FPR column by checking model responses on patched contracts.
+
+    A false positive (FPR=1) means the model claimed a vulnerability exists
+    on a contract where the bug has been fixed.
+    """
+    patched_files = sorted(PATCHED_DIR.glob("*.json"))
+    if not patched_files:
+        raise FileNotFoundError(
+            f"No patched JSON files in {PATCHED_DIR}. "
+            "Run: python scripts/run_experiments.py --patched"
+        )
+
+    existing = load_existing_scores()
+    if not existing:
+        raise FileNotFoundError(
+            "No scores.csv found. Run score_outputs.py (without --fill-fpr) first."
+        )
+
+    updated = 0
+    for json_path in patched_files:
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        response = data.get("response", "")
+        try:
+            meta = parse_filename(json_path.name)
+        except ValueError as exc:
+            logging.error("skip %s: %s", json_path.name, exc)
+            continue
+
+        # FPR=1 if model mentions vulnerability keywords on patched contract
+        fpr = auto_score_dr(response, meta["vuln_class"])
+
+        vuln_filename = json_path.name  # same name as vulnerable counterpart
+        if vuln_filename in existing:
+            existing[vuln_filename]["FPR"] = fpr
+            updated += 1
+            logging.info("FPR=%d for %s", fpr, vuln_filename)
+        else:
+            logging.warning("no matching row for %s in scores.csv", vuln_filename)
+
+    rows = list(existing.values())
+    save_scores(rows)
+    logging.info("filled FPR for %d rows", updated)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Score raw model outputs")
     parser.add_argument("--file", help="Score a single JSON file")
+    parser.add_argument(
+        "--fill-fpr",
+        action="store_true",
+        help="Fill FPR column from patched contract runs in raw_outputs_patched/",
+    )
     args = parser.parse_args()
+
+    if args.fill_fpr:
+        fill_fpr_from_patched()
+        return
 
     if args.file:
         row = score_single_file(Path(args.file))
