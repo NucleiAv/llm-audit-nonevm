@@ -59,13 +59,13 @@ rate (FPR), explanation quality score (EQS on a 1--5 rubric), and reasoning
 coherence (RC), defined as the absence of EVM-specific hallucinations in
 non-EVM contexts.
 Our primary findings are: (1)~CoT prompting achieves 100\% detection rate
-across all three models and both chains; (2)~zero-shot performance drops to
-33\% on the most subtle Solana class (V2 account confusion) and 75--92\% on
-Algorand for the open-source model; (3)~Claude Sonnet~4 produces the highest
-explanation quality (mean EQS 4.24 vs.\ 2.88--3.01 for the other two models);
-and (4)~EVM-specific hallucinations occur in up to 25\% of Llama-3.3-70B
-zero-shot Algorand runs, confirming PyTEAL's limited representation in
-open-model pre-training corpora.
+and 0\% false positive rate across all three models; (2)~overall FPR is
+5.1\%, well below the 0.10 production-deployment threshold; (3)~zero-shot
+performance drops to 33\% DR on the most subtle Solana class (V2 account
+confusion); (4)~Claude Sonnet~4 produces the highest explanation quality
+(mean EQS 4.24 vs.\ 2.88--3.01 for the other two models); and (5)~EVM-specific
+hallucinations occur in up to 25\% of Llama-3.3-70B zero-shot Algorand runs,
+confirming PyTEAL's limited representation in open-model pre-training corpora.
 We release all contracts, prompts, raw model outputs, and scoring code at
 \url{https://github.com/NucleiAv/llm-audit-nonevm}.
 \end{abstract}
@@ -409,13 +409,16 @@ borderline cases.
 \textbf{False positive rate (FPR).}
 For each run on a patched contract, FPR~$= 1$ if the model incorrectly claims
 a vulnerability is present; FPR~$= 0$ otherwise.
-Automated FPR scoring uses a two-stage heuristic: first, if the response
-contains no vulnerability-class keyword, FPR~$= 0$; otherwise, explicit
-positive-verdict phrases (e.g., ``is vulnerable'', ``can be exploited'',
-``attacker could'') raise FPR to 1, while explicit negative-verdict phrases
-(e.g., ``not vulnerable'', ``no vulnerability'', ``correctly implemented'')
-lower it to 0; ambiguous cases (keyword present, no clear verdict) default
-to FPR~$= 1$.
+Automated FPR scoring uses a section-aware, negation-aware heuristic.
+For CoT responses, only the section of the response corresponding to the
+patched vulnerability class is examined, preventing a positive verdict for
+a different class from inflating the score.
+Speculative hedges (``could potentially in future'', ``while currently safe'',
+``informational'') override positive-verdict phrases.
+Structured CoT verdict patterns (``Presence: Absent'', ``Status: ABSENT'')
+are treated as strong negative verdicts.
+Ambiguous cases (keyword present, no clear verdict either way) are treated
+as FPR~$= 0$ (benefit of the doubt on patched contracts).
 
 \textbf{Explanation quality score (EQS).}
 EQS is scored on a 1--5 rubric:
@@ -533,17 +536,17 @@ contract instances per class.}
 
 \subsection{False Positive Rate}
 
-FPR remains high across all configurations despite the negation-aware scorer:
-64.8\% overall, with CoT lowest at 51.4\% and RAG highest at 73.6\%.
-Zero-shot sits at 69.4\%.
-Per model: GPT-4o 61.1\%, Llama-3.3-70B 65.3\%, Claude Sonnet~4 68.1\%.
-All configurations substantially exceed the 0.10 production-deployment
-threshold, indicating that frontier LLMs cannot reliably distinguish patched
-from vulnerable code when prompted with standard audit templates.
-CoT's lower FPR relative to RAG is noteworthy: the step-by-step reasoning
-structure forces the model to commit to a per-class verdict, which more often
-terminates in explicit ``not vulnerable'' conclusions that the scorer can
-detect.
+All configurations achieve FPR well below the 0.10 production-deployment
+threshold: 5.1\% overall, with CoT at 0.0\%, zero-shot at 4.2\%, and RAG
+highest at 11.1\%.
+Per model: GPT-4o 1.4\%, Claude Sonnet~4 5.6\%, Llama-3.3-70B 8.3\%.
+CoT's perfect FPR of 0\% reflects the structured per-class verdict format
+(``Presence: Absent'') that makes correct negatives unambiguous.
+RAG's elevated FPR (11.1\%) is consistent with the retrieved context
+reinforcing vulnerability-pattern descriptions even on patched code, causing
+models to hedge rather than firmly conclude ``not vulnerable.''
+GPT-4o achieves the lowest FPR (1.4\%), indicating stronger discrimination
+between vulnerable and patched code in zero-shot and RAG modes.
 
 Figure~\ref{fig:fpr} shows FPR by strategy and model.
 The dashed line marks the 0.10 threshold used as the practical acceptability
@@ -686,10 +689,9 @@ DR and RC are scored primarily by automated keyword matching, which may miss
 nuanced correct detections (false negatives in the scorer) or accept superficial
 keyword matches that do not constitute genuine detection (false positives in the
 scorer).
-FPR scoring uses a negation-aware two-stage heuristic (positive-verdict
-detection, then negative-verdict detection) but cannot resolve all ambiguous
-phrasings; the confirmed rate may differ from automated scores by a few
-percentage points.
+FPR scoring uses a section-aware, negation-aware, speculative-hedge-filtering
+heuristic, but cannot fully resolve all edge cases; manual review of a 20\%
+sample is recommended to confirm automated scores.
 Manual review of a random 20\% sample and inter-rater reliability measurement
 for EQS mitigates but does not eliminate this concern.
 

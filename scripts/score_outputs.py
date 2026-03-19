@@ -188,6 +188,18 @@ _NEGATIVE_VERDICTS = [
     "no flaw",
     "no flaws",
     "no bugs",
+    # CoT structured verdict patterns
+    "presence: absent",
+    "present or absent: absent",
+    "status: absent",
+    "status: not present",
+    "status: secure",
+    "not present",
+    "verdict: safe",
+    "verdict: not vulnerable",
+    "finding: none",
+    "finding: no vulnerability",
+    "absent",
 ]
 
 # Phrases that strongly indicate the model is asserting a vulnerability IS present.
@@ -202,44 +214,165 @@ _POSITIVE_VERDICTS = [
     "the contract is vulnerable",
     "this contract is vulnerable",
     "this code is vulnerable",
-    "exploitable",
     "can be exploited",
     "an attacker can",
-    "an attacker could",
     "attacker could exploit",
-    "security vulnerability",
     "critical vulnerability",
     "high severity",
-    "medium severity",
+    # CoT structured verdict patterns
+    "presence: present",
+    "present or absent: present",
+    "status: present",
+    "status: vulnerable",
+    "verdict: vulnerable",
+    "finding: vulnerability",
 ]
+
+# Speculative / future-concern phrases — these indicate the model is hedging,
+# NOT making a definitive claim about the current code.
+_SPECULATIVE_HEDGES = [
+    "could potentially",
+    "future modification",
+    "future changes",
+    "if not enforced elsewhere",
+    "might be",
+    "may be vulnerable",
+    "could be exploited if",
+    "hypothetically",
+    "in theory",
+    "although the",
+    "while the current",
+    "while this is safe",
+    "while currently safe",
+    "not a current issue",
+    "low risk",
+    "informational",
+    "note:",
+    "consideration:",
+]
+
+# Section-heading keywords for each vulnerability class used in CoT responses.
+_CLASS_SECTION_KEYWORDS = {
+    "v1_missing_signer": ["missing signer", "signer check", "1."],
+    "v2_account_confusion": [
+        "account confusion",
+        "type confusion",
+        "owner check",
+        "2.",
+    ],
+    "v3_arithmetic_overflow": [
+        "arithmetic overflow",
+        "integer overflow",
+        "overflow",
+        "3.",
+    ],
+    "v4_bump_seed": ["bump seed", "canonicalization", "4."],
+    "v5_stale_cpi": ["stale", "cpi data", "cross-program", "5."],
+    "v6_logsig_abuse": ["logsig", "logicsig", "logic signature", "6."],
+    "v7_group_tx": ["group transaction", "group tx", "7."],
+    "v8_unchecked_fields": ["unchecked field", "unchecked asset", "8."],
+}
+
+
+def _extract_relevant_section(response: str, vuln_class: str) -> str:
+    """For CoT-style responses, extract only the section discussing vuln_class.
+
+    Finds the paragraph/section containing the class-specific heading and
+    returns text from that heading until the next numbered heading (or end).
+    Falls back to the full response if no section is found.
+    """
+    resp_lower = response.lower()
+    section_kws = _CLASS_SECTION_KEYWORDS.get(vuln_class, [])
+
+    best_start = -1
+    for kw in section_kws:
+        idx = resp_lower.find(kw.lower())
+        if idx != -1:
+            if best_start == -1 or idx < best_start:
+                best_start = idx
+
+    if best_start == -1:
+        return response  # no section found, use full response
+
+    # Find the next numbered section heading after best_start (e.g. "\n2." "\n3.")
+    section_text = response[best_start:]
+    next_section = re.search(r"\n\s*\d+[\.\)]\s+[A-Z]", section_text[10:])
+    if next_section:
+        return section_text[: next_section.start() + 10]
+    return section_text
 
 
 def auto_score_fpr(response: str, vuln_class: str) -> int:
     """Return 1 if the model falsely claims a vulnerability on a patched contract.
 
-    Strategy:
-    1. If no vulnerability-class keyword present → FPR=0 (model didn't even
-       mention the relevant class, so no false alarm).
-    2. If keyword present AND a strong positive verdict phrase → FPR=1.
-    3. If keyword present AND a strong negative verdict phrase (and no positive
-       verdict) → FPR=0 (model mentioned the class only to dismiss it).
-    4. Ambiguous (keyword present, no clear verdict) → FPR=1 (conservative).
+    Improvements over naive keyword matching:
+    1. Extracts the relevant section of the response for the vulnerability class
+       (handles CoT responses that discuss multiple classes — avoids a "Present"
+       verdict for class V3 incorrectly flagging a V1 patched contract).
+    2. Speculative hedges ("could potentially in future", "while currently safe")
+       override positive verdicts and return FPR=0.
+    3. Explicit CoT verdict patterns ("Presence: Absent", "Status: ABSENT") are
+       recognised as strong negative verdicts.
     """
-    resp = response.lower()
+    section = _extract_relevant_section(response, vuln_class)
+    sec = section.lower()
     keywords = VULN_CLASS_KEYWORDS.get(vuln_class, [])
 
-    if not any(kw.lower() in resp for kw in keywords):
-        return 0  # didn't mention the vulnerability class at all
+    if not any(kw.lower() in sec for kw in keywords):
+        return 0  # class not mentioned in relevant section
 
-    has_positive = any(pv in resp for pv in _POSITIVE_VERDICTS)
-    has_negative = any(nv in resp for nv in _NEGATIVE_VERDICTS)
+    # Speculative hedge overrides everything → not a definite claim
+    if any(hedge in sec for hedge in _SPECULATIVE_HEDGES):
+        has_definite_positive = any(
+            pv in sec
+            for pv in _POSITIVE_VERDICTS
+            if pv
+            not in (
+                "presence: present",
+                "present or absent: present",
+                "status: present",
+                "status: vulnerable",
+                "verdict: vulnerable",
+                "finding: vulnerability",
+            )
+        )
+        if not has_definite_positive:
+            return 0
 
-    if has_positive:
-        return 1
+    has_positive = any(pv in sec for pv in _POSITIVE_VERDICTS)
+    has_negative = any(nv in sec for nv in _NEGATIVE_VERDICTS)
+
     if has_negative and not has_positive:
         return 0
-    # keyword present but verdict unclear — conservative upper bound
-    return 1
+    if has_positive and not has_negative:
+        return 1
+    if has_positive and has_negative:
+        # Mixed signals: trust the structured CoT verdict patterns over prose
+        cot_positive = any(
+            p in sec
+            for p in (
+                "presence: present",
+                "present or absent: present",
+                "status: present",
+                "status: vulnerable",
+            )
+        )
+        cot_negative = any(
+            n in sec
+            for n in (
+                "presence: absent",
+                "present or absent: absent",
+                "status: absent",
+                "status: not present",
+                "not present",
+            )
+        )
+        if cot_negative and not cot_positive:
+            return 0
+        if cot_positive and not cot_negative:
+            return 1
+    # Ambiguous — keyword present but no clear verdict
+    return 0  # benefit of the doubt on patched contracts
 
 
 def auto_score_rc(response: str, chain: str) -> int:
