@@ -39,8 +39,8 @@ Email: av3938@nyu.edu}
 % -----------------------------------------------------------------------
 \begin{abstract}
 The overwhelming majority of LLM-based smart contract audit tools target
-Ethereum and the EVM toolchain, leaving Solana and Algorand---the second
-and third largest blockchain ecosystems by developer activity---essentially
+Ethereum and the EVM toolchain, leaving Solana and Algorand, the second
+and third largest blockchain ecosystems by developer activity, essentially
 without automated vulnerability detection support.
 This paper presents the first systematic benchmark of frontier large language
 models on non-EVM smart contract vulnerability detection.
@@ -51,11 +51,11 @@ cross-program invocation data) and three Algorand/PyTEAL classes (logic
 signature abuse, group transaction manipulation, and unchecked asset fields).
 Each instance has a paired patched version to enable false positive rate
 measurement.
-We evaluate three frontier models---GPT-4o, Claude Sonnet~4, and
-Llama-3.3-70B-Instruct---under three prompting strategies: zero-shot,
+We evaluate three frontier models (GPT-4o, Claude Sonnet~4, and
+Llama-3.3-70B-Instruct) under three prompting strategies: zero-shot,
 chain-of-thought (CoT), and retrieval-augmented generation (RAG).
 Across 216 experimental runs we measure detection rate (DR), false positive
-rate (FPR), explanation quality score (EQS on a 1--5 rubric), and reasoning
+rate (FPR), explanation quality score (EQS on a 1 to 5 rubric), and reasoning
 coherence (RC), defined as the absence of EVM-specific hallucinations in
 non-EVM contexts.
 Our primary findings are: (1)~CoT prompting achieves 100\% detection rate
@@ -64,7 +64,7 @@ and 0\% false positive rate across all three models; (2)~overall FPR is
 pairs exceed it, with RAG~+~Claude~Sonnet~4 highest at 16.7\%;
 (3)~zero-shot performance drops to 33\% DR on the most subtle Solana class
 (V2 account confusion); (4)~Claude Sonnet~4 produces the highest explanation
-quality (mean EQS 4.24 vs.\ 2.88--3.01 for the other two models); and
+quality (mean EQS 4.24 vs.\ 2.88 to 3.01 for the other two models); and
 (5)~EVM-specific hallucinations occur in up to 25\% of Llama-3.3-70B
 zero-shot Algorand runs, confirming PyTEAL's limited representation in
 open-model pre-training corpora.
@@ -91,7 +91,7 @@ accepted a ``SignatureSet'' account that had been constructed to bypass the
 Secp256k1 signature verification instruction, exploiting Solana's account model
 in a way that has no analog in Ethereum's execution
 environment~\cite{kudelski2022wormhole,immunebytes2022wormhole}.
-No Ethereum-focused static analysis tool---Slither, Mythril, or Oyente---could
+No Ethereum-focused static analysis tool, including Slither, Mythril, or Oyente, could
 have flagged this flaw, because it did not exist in Solidity.
 
 This incident illustrates a structural gap in the smart contract security
@@ -158,7 +158,7 @@ architecture for smart contract auditing and evaluates it exclusively on Solidit
 benchmarks.
 Smart-LLaMA-DPO~\cite{yang2025smartllama} applies direct preference optimization
 to fine-tune LLaMA for EVM vulnerability detection, reporting state-of-the-art
-results on the SmartBugs dataset---again, EVM only.
+results on the SmartBugs dataset, which covers EVM contracts only.
 The LLM4Vuln~\cite{liu2024llm4vuln} evaluation framework decouples vulnerability
 knowledge from reasoning capability and identifies chain-of-thought prompting as
 a key driver of LLM vulnerability reasoning performance.
@@ -298,8 +298,8 @@ Applications that validate only \texttt{Gtxn[0]} without asserting
 substituting a malicious transaction in the expected position.
 
 \textbf{V8: Unchecked asset receiver and fee fields.} Asset transfer transactions
-carry several fields---\texttt{asset\_receiver}, \texttt{close\_remainder\_to},
-\texttt{rekey\_to}---that, if left unchecked, allow attackers to redirect funds
+carry several fields, including \texttt{asset\_receiver}, \texttt{close\_remainder\_to},
+and \texttt{rekey\_to}, that, if left unchecked, allow attackers to redirect funds
 or take over account control even when the amount and asset ID are validated.
 
 \subsection{Dataset Statistics}
@@ -423,7 +423,7 @@ Ambiguous cases (keyword present, no clear verdict either way) are treated
 as FPR~$= 0$ (benefit of the doubt on patched contracts).
 
 \textbf{Explanation quality score (EQS).}
-EQS is scored on a 1--5 rubric:
+EQS is scored on a 1 to 5 rubric:
 1 = no detection; 2 = correct detection only; 3 = detection + code location;
 4 = detection + location + attack scenario; 5 = all of the above plus a
 correct fix recommendation.
@@ -483,10 +483,10 @@ Seven of the eight vulnerability classes achieve 100\% DR under CoT across all
 models.
 The sole exception is V2 (account confusion), which exhibits the widest
 variance: GPT-4o zero-shot reaches only 33\% DR, recovering to 100\% under CoT.
-This pattern is consistent with the subtlety of V2---the flaw is not a missing
+This pattern is consistent with the subtlety of V2: the flaw is not a missing
 check but a missing type constraint, requiring reasoning about Anchor's account
 validation model rather than detecting an absent assertion.
-All Algorand classes (V6--V8) achieve 100\% DR under all strategies and models.
+All Algorand classes (V6 through V8) achieve 100\% DR under all strategies and models.
 
 Figure~\ref{fig:heatmap} shows a heatmap of detection rate broken down by
 vulnerability class and strategy-model combination.
@@ -614,7 +614,7 @@ for correctly detected vulnerabilities (DR~$= 1$ runs only).
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\columnwidth]{../figures/fig6_eqs_distribution.png}
-\caption{Distribution of explanation quality scores (EQS 1--5) by prompting
+\caption{Distribution of explanation quality scores (EQS 1 to 5) by prompting
 strategy, restricted to runs where the vulnerability was correctly detected
 (DR~$= 1$).}
 \label{fig:eqs}
@@ -635,7 +635,7 @@ CoT prompting provides a substantial lift by forcing the model to explicitly
 consider each vulnerability class before producing a verdict, reducing missed
 detections caused by superficial response patterns.
 RAG further improves detection on classes where the retrieved passages include
-the canonical exploit pattern, and---critically---lowers false positive rates by
+the canonical exploit pattern and, critically, lowers false positive rates by
 grounding responses in documented real vulnerability signatures rather than
 LLM-generated vulnerability intuitions.
 
