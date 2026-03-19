@@ -81,12 +81,14 @@ if [[ -z "${OPENAI_API_KEY:-}"    ||
 fi
 
 # ---------------------------------------------------------------------------
-# 1. Install extra Python dependencies not already in the base image
+# 1. Verify Python dependencies (installed via Code Ocean environment editor)
 # ---------------------------------------------------------------------------
 echo ""
-echo "[STEP 1] Installing Python dependencies..."
-pip install --quiet --root-user-action=ignore \
-    sentence-transformers together tqdm
+echo "[STEP 1] Checking Python dependencies..."
+python -c "import openai, anthropic, faiss, pandas, matplotlib, seaborn, sentence_transformers, together" \
+  && echo "         All dependencies present." \
+  || { echo "ERROR: missing dependencies. Add sentence-transformers and together to the"; \
+       echo "       Code Ocean environment editor pip packages list, then rebuild."; exit 1; }
 
 # ---------------------------------------------------------------------------
 # 2. Build RAG index  (saves to rag_corpus/faiss_index/ relative to repo)
