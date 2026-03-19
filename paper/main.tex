@@ -60,12 +60,14 @@ coherence (RC), defined as the absence of EVM-specific hallucinations in
 non-EVM contexts.
 Our primary findings are: (1)~CoT prompting achieves 100\% detection rate
 and 0\% false positive rate across all three models; (2)~overall FPR is
-5.1\%, well below the 0.10 production-deployment threshold; (3)~zero-shot
-performance drops to 33\% DR on the most subtle Solana class (V2 account
-confusion); (4)~Claude Sonnet~4 produces the highest explanation quality
-(mean EQS 4.24 vs.\ 2.88--3.01 for the other two models); and (5)~EVM-specific
-hallucinations occur in up to 25\% of Llama-3.3-70B zero-shot Algorand runs,
-confirming PyTEAL's limited representation in open-model pre-training corpora.
+5.1\% (below the 0.10 threshold), though three of the nine strategy-model
+pairs exceed it, with RAG~+~Claude~Sonnet~4 highest at 16.7\%;
+(3)~zero-shot performance drops to 33\% DR on the most subtle Solana class
+(V2 account confusion); (4)~Claude Sonnet~4 produces the highest explanation
+quality (mean EQS 4.24 vs.\ 2.88--3.01 for the other two models); and
+(5)~EVM-specific hallucinations occur in up to 25\% of Llama-3.3-70B
+zero-shot Algorand runs, confirming PyTEAL's limited representation in
+open-model pre-training corpora.
 We release all contracts, prompts, raw model outputs, and scoring code at
 \url{https://github.com/NucleiAv/llm-audit-nonevm}.
 \end{abstract}
@@ -536,17 +538,25 @@ contract instances per class.}
 
 \subsection{False Positive Rate}
 
-All configurations achieve FPR well below the 0.10 production-deployment
-threshold: 5.1\% overall, with CoT at 0.0\%, zero-shot at 4.2\%, and RAG
-highest at 11.1\%.
-Per model: GPT-4o 1.4\%, Claude Sonnet~4 5.6\%, Llama-3.3-70B 8.3\%.
-CoT's perfect FPR of 0\% reflects the structured per-class verdict format
-(``Presence: Absent'') that makes correct negatives unambiguous.
-RAG's elevated FPR (11.1\%) is consistent with the retrieved context
-reinforcing vulnerability-pattern descriptions even on patched code, causing
-models to hedge rather than firmly conclude ``not vulnerable.''
-GPT-4o achieves the lowest FPR (1.4\%), indicating stronger discrimination
-between vulnerable and patched code in zero-shot and RAG modes.
+Overall FPR is 5.1\%, well below the 0.10 threshold.
+CoT achieves 0.0\% FPR across all three models; zero-shot averages 4.2\%.
+RAG is the weakest strategy at 11.1\% average FPR.
+
+At the per-combination level, three of the nine strategy-model pairs exceed
+the 0.10 threshold: Zero-Shot~+~Llama-3.3-70B (12.5\%), RAG~+~Claude~Sonnet~4
+(16.7\%), and RAG~+~Llama-3.3-70B (12.5\%).
+All GPT-4o configurations and all CoT configurations remain below the
+threshold.
+Per-model averages: GPT-4o 1.4\%, Claude Sonnet~4 5.6\%, Llama-3.3-70B 8.3\%.
+
+CoT's perfect FPR reflects the structured per-class verdict format
+(``Presence: Absent'') that leaves no ambiguity.
+RAG's elevated FPR is consistent with the retrieved vulnerability-pattern
+descriptions reinforcing concern even on patched code, causing models to hedge
+rather than commit to ``not vulnerable.''
+By vulnerability class, V7 (Group TX) and V8 (Unchecked Fields) are the only
+classes above the threshold at 11.1\% each; V3 (Arithmetic Overflow) and V4
+(Bump Seed) achieve 0.0\% FPR across all models and strategies.
 
 Figure~\ref{fig:fpr} shows FPR by strategy and model.
 The dashed line marks the 0.10 threshold used as the practical acceptability
