@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 rag_corpus/faiss_index/
 results/raw_outputs/
+results/raw_outputs_patched/
 *.egg-info/
 .venv/
 venv/
