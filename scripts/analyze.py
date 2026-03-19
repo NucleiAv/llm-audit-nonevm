@@ -295,8 +295,8 @@ def fig5_pipeline_diagram(out_dir: Path) -> None:
         color="#d0e4f7",
     )
     box(6.0, 4.8, 1.5, 0.6, "GPT-4o", color="#c8e6c9")
-    box(6.0, 3.9, 1.5, 0.6, "Claude 3.7", color="#c8e6c9")
-    box(6.0, 3.0, 1.5, 0.6, "CodeLlama", color="#c8e6c9")
+    box(6.0, 3.9, 1.5, 0.6, "Claude\nSonnet 4", color="#c8e6c9")
+    box(6.0, 3.0, 1.5, 0.6, "Llama-3.3\n-70B", color="#c8e6c9")
     box(8.2, 3.8, 1.6, 0.8, "JSON Output\n(216 files)", color="#ffe0b2")
     box(3.5, 1.5, 3.0, 1.0, "Scoring\n(DR, FPR, EQS, RC)", color="#f3e5f5")
     box(3.5, 0.2, 3.0, 0.8, "Results Table &\n6 Figures", color="#fce4ec")
