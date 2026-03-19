@@ -27,8 +27,16 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS="$REPO_ROOT/scripts"
-RESULTS="$REPO_ROOT/results"
-FIGURES="$REPO_ROOT/figures"
+
+# Code Ocean requires all output files to be written to /results
+# so they appear in the computation snapshot / timeline.
+# Fall back to $REPO_ROOT/results when running locally.
+if [[ -d "/results" ]]; then
+  RESULTS="/results"
+else
+  RESULTS="$REPO_ROOT/results"
+fi
+FIGURES="$RESULTS/figures"
 
 # ---------------------------------------------------------------------------
 # 0. Parse flags
@@ -107,7 +115,7 @@ python "$SCRIPTS/analyze.py" \
 
 echo ""
 echo "[DONE] Figures written to: $FIGURES/"
-ls -lh "$FIGURES/"*.png
+ls -lh "$FIGURES/"*.png 2>/dev/null || echo "(no PNG files found)"
 
 # ---------------------------------------------------------------------------
 # 6. Print summary statistics
@@ -116,9 +124,9 @@ echo ""
 echo "============================================================"
 echo " Summary Statistics"
 echo "============================================================"
-python - <<'PYEOF'
+RESULTS_DIR="$RESULTS" python - <<'PYEOF'
 import pandas as pd, os
-csv = os.path.join(os.environ.get("REPO_ROOT", "."), "results", "scores.csv")
+csv = os.path.join(os.environ.get("RESULTS_DIR", "/results"), "scores.csv")
 if not os.path.exists(csv):
     csv = "results/scores.csv"
 df = pd.read_csv(csv)
