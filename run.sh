@@ -16,6 +16,13 @@
 # the LLM calls and regenerates figures from the pre-computed results/scores.csv.
 # =============================================================================
 
+# ---- Recursion guard (Code Ocean sets BASH_ENV to this file, which would
+#      re-execute it in every subshell created by $(...) substitutions) -------
+unset BASH_ENV ENV
+if [[ "${_RUN_SH_GUARD:-}" == "1" ]]; then exit 0; fi
+export _RUN_SH_GUARD=1
+# ----------------------------------------------------------------------------
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
