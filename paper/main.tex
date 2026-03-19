@@ -409,13 +409,13 @@ borderline cases.
 \textbf{False positive rate (FPR).}
 For each run on a patched contract, FPR~$= 1$ if the model incorrectly claims
 a vulnerability is present; FPR~$= 0$ otherwise.
-Automated FPR scoring uses the same keyword heuristics as DR: if a
-vulnerability-class keyword appears in the response, FPR is provisionally set
-to 1.
-Because a model may mention a keyword while correctly concluding the contract
-is safe (e.g., ``this contract is \emph{not} vulnerable to bump seed
-canonicalization''), automated scores represent an upper bound and require
-manual review for confirmation.
+Automated FPR scoring uses a two-stage heuristic: first, if the response
+contains no vulnerability-class keyword, FPR~$= 0$; otherwise, explicit
+positive-verdict phrases (e.g., ``is vulnerable'', ``can be exploited'',
+``attacker could'') raise FPR to 1, while explicit negative-verdict phrases
+(e.g., ``not vulnerable'', ``no vulnerability'', ``correctly implemented'')
+lower it to 0; ambiguous cases (keyword present, no clear verdict) default
+to FPR~$= 1$.
 
 \textbf{Explanation quality score (EQS).}
 EQS is scored on a 1--5 rubric:
@@ -533,18 +533,17 @@ contract instances per class.}
 
 \subsection{False Positive Rate}
 
-Automated (upper-bound) FPR scores are high across all configurations: 90.3\%
-overall, with zero-shot lowest at 75.0\% and CoT highest at 100\%.
-Per model: GPT-4o 91.7\%, Claude Sonnet~4 93.1\%, Llama-3.3-70B 86.1\%.
-These figures should be interpreted with caution.
-The automated scorer flags any response containing a vulnerability-class keyword
-as a false positive, but many such responses conclude that the patched contract
-is \emph{safe}---a correct negative.
-Manual review of a random 20\% sample (43 runs) is required to obtain confirmed
-FPR values; the automated scores serve as an upper bound.
-All configurations far exceed the 0.10 production-deployment threshold on
-automated scoring, motivating the need for post-hoc semantic filtering or
-negation-aware scoring in future work.
+FPR remains high across all configurations despite the negation-aware scorer:
+64.8\% overall, with CoT lowest at 51.4\% and RAG highest at 73.6\%.
+Zero-shot sits at 69.4\%.
+Per model: GPT-4o 61.1\%, Llama-3.3-70B 65.3\%, Claude Sonnet~4 68.1\%.
+All configurations substantially exceed the 0.10 production-deployment
+threshold, indicating that frontier LLMs cannot reliably distinguish patched
+from vulnerable code when prompted with standard audit templates.
+CoT's lower FPR relative to RAG is noteworthy: the step-by-step reasoning
+structure forces the model to commit to a per-class verdict, which more often
+terminates in explicit ``not vulnerable'' conclusions that the scorer can
+detect.
 
 Figure~\ref{fig:fpr} shows FPR by strategy and model.
 The dashed line marks the 0.10 threshold used as the practical acceptability
@@ -687,10 +686,10 @@ DR and RC are scored primarily by automated keyword matching, which may miss
 nuanced correct detections (false negatives in the scorer) or accept superficial
 keyword matches that do not constitute genuine detection (false positives in the
 scorer).
-FPR is particularly susceptible: the keyword-based scorer cannot distinguish
-``this contract IS vulnerable'' from ``this contract is NOT vulnerable to
-[keyword]'', causing automated FPR to be an upper bound rather than a confirmed
-rate.
+FPR scoring uses a negation-aware two-stage heuristic (positive-verdict
+detection, then negative-verdict detection) but cannot resolve all ambiguous
+phrasings; the confirmed rate may differ from automated scores by a few
+percentage points.
 Manual review of a random 20\% sample and inter-rater reliability measurement
 for EQS mitigates but does not eliminate this concern.
 

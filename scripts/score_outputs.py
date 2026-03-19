@@ -161,6 +161,87 @@ def auto_score_dr(response: str, vuln_class: str) -> int:
     return int(any(kw.lower() in response_lower for kw in keywords))
 
 
+# Phrases that strongly indicate the model is reporting NO vulnerability found.
+_NEGATIVE_VERDICTS = [
+    "no vulnerability",
+    "no vulnerabilities",
+    "not vulnerable",
+    "does not contain",
+    "no security issue",
+    "no security issues",
+    "appears secure",
+    "appears to be secure",
+    "is secure",
+    "no issue",
+    "no issues found",
+    "properly implemented",
+    "correctly implemented",
+    "correctly uses",
+    "properly uses",
+    "no exploit",
+    "not exploitable",
+    "i did not find",
+    "i found no",
+    "found no vulnerability",
+    "cannot be exploited",
+    "safe to use",
+    "no flaw",
+    "no flaws",
+    "no bugs",
+]
+
+# Phrases that strongly indicate the model is asserting a vulnerability IS present.
+_POSITIVE_VERDICTS = [
+    "vulnerability found",
+    "vulnerability exists",
+    "is vulnerable",
+    "contains a vulnerability",
+    "contains vulnerability",
+    "i found a vulnerability",
+    "i identified a vulnerability",
+    "the contract is vulnerable",
+    "this contract is vulnerable",
+    "this code is vulnerable",
+    "exploitable",
+    "can be exploited",
+    "an attacker can",
+    "an attacker could",
+    "attacker could exploit",
+    "security vulnerability",
+    "critical vulnerability",
+    "high severity",
+    "medium severity",
+]
+
+
+def auto_score_fpr(response: str, vuln_class: str) -> int:
+    """Return 1 if the model falsely claims a vulnerability on a patched contract.
+
+    Strategy:
+    1. If no vulnerability-class keyword present → FPR=0 (model didn't even
+       mention the relevant class, so no false alarm).
+    2. If keyword present AND a strong positive verdict phrase → FPR=1.
+    3. If keyword present AND a strong negative verdict phrase (and no positive
+       verdict) → FPR=0 (model mentioned the class only to dismiss it).
+    4. Ambiguous (keyword present, no clear verdict) → FPR=1 (conservative).
+    """
+    resp = response.lower()
+    keywords = VULN_CLASS_KEYWORDS.get(vuln_class, [])
+
+    if not any(kw.lower() in resp for kw in keywords):
+        return 0  # didn't mention the vulnerability class at all
+
+    has_positive = any(pv in resp for pv in _POSITIVE_VERDICTS)
+    has_negative = any(nv in resp for nv in _NEGATIVE_VERDICTS)
+
+    if has_positive:
+        return 1
+    if has_negative and not has_positive:
+        return 0
+    # keyword present but verdict unclear — conservative upper bound
+    return 1
+
+
 def auto_score_rc(response: str, chain: str) -> int:
     response_lower = response.lower()
     for hallucination in EVM_HALLUCINATIONS:
@@ -264,8 +345,8 @@ def fill_fpr_from_patched() -> None:
             logging.error("skip %s: %s", json_path.name, exc)
             continue
 
-        # FPR=1 if model mentions vulnerability keywords on patched contract
-        fpr = auto_score_dr(response, meta["vuln_class"])
+        # FPR=1 only if model positively claims a vulnerability on the patched contract
+        fpr = auto_score_fpr(response, meta["vuln_class"])
 
         vuln_filename = json_path.name  # same name as vulnerable counterpart
         if vuln_filename in existing:
