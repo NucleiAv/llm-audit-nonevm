@@ -409,7 +409,13 @@ borderline cases.
 \textbf{False positive rate (FPR).}
 For each run on a patched contract, FPR~$= 1$ if the model incorrectly claims
 a vulnerability is present; FPR~$= 0$ otherwise.
-FPR is scored manually after inspecting each patched-contract response.
+Automated FPR scoring uses the same keyword heuristics as DR: if a
+vulnerability-class keyword appears in the response, FPR is provisionally set
+to 1.
+Because a model may mention a keyword while correctly concluding the contract
+is safe (e.g., ``this contract is \emph{not} vulnerable to bump seed
+canonicalization''), automated scores represent an upper bound and require
+manual review for confirmation.
 
 \textbf{Explanation quality score (EQS).}
 EQS is scored on a 1--5 rubric:
@@ -526,6 +532,19 @@ contract instances per class.}
 \end{table}
 
 \subsection{False Positive Rate}
+
+Automated (upper-bound) FPR scores are high across all configurations: 90.3\%
+overall, with zero-shot lowest at 75.0\% and CoT highest at 100\%.
+Per model: GPT-4o 91.7\%, Claude Sonnet~4 93.1\%, Llama-3.3-70B 86.1\%.
+These figures should be interpreted with caution.
+The automated scorer flags any response containing a vulnerability-class keyword
+as a false positive, but many such responses conclude that the patched contract
+is \emph{safe}---a correct negative.
+Manual review of a random 20\% sample (43 runs) is required to obtain confirmed
+FPR values; the automated scores serve as an upper bound.
+All configurations far exceed the 0.10 production-deployment threshold on
+automated scoring, motivating the need for post-hoc semantic filtering or
+negation-aware scoring in future work.
 
 Figure~\ref{fig:fpr} shows FPR by strategy and model.
 The dashed line marks the 0.10 threshold used as the practical acceptability
@@ -668,6 +687,10 @@ DR and RC are scored primarily by automated keyword matching, which may miss
 nuanced correct detections (false negatives in the scorer) or accept superficial
 keyword matches that do not constitute genuine detection (false positives in the
 scorer).
+FPR is particularly susceptible: the keyword-based scorer cannot distinguish
+``this contract IS vulnerable'' from ``this contract is NOT vulnerable to
+[keyword]'', causing automated FPR to be an upper bound rather than a confirmed
+rate.
 Manual review of a random 20\% sample and inter-rater reliability measurement
 for EQS mitigates but does not eliminate this concern.
 
