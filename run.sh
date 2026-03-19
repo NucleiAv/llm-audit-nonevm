@@ -34,6 +34,24 @@ else
 fi
 SCRIPTS="$REPO_ROOT/scripts"
 
+# ---------------------------------------------------------------------------
+# Ensure full repo is present (Code Ocean capsule may only contain run.sh)
+# ---------------------------------------------------------------------------
+if [[ ! -f "$SCRIPTS/rag_index.py" ]]; then
+  echo ""
+  echo "[SETUP] scripts/ not found — cloning repo from GitHub..."
+  apt-get install -y -q git 2>/dev/null || true
+  git clone --depth 1 https://github.com/NucleiAv/llm-audit-nonevm.git /tmp/repo
+  # Copy everything except run.sh itself (already present) into /code
+  cp -rn /tmp/repo/scripts   "$REPO_ROOT/"
+  cp -rn /tmp/repo/contracts "$REPO_ROOT/"
+  cp -rn /tmp/repo/prompts   "$REPO_ROOT/"
+  cp -rn /tmp/repo/rag_corpus "$REPO_ROOT/"
+  cp -rn /tmp/repo/results   "$REPO_ROOT/"
+  cp -rn /tmp/repo/figures   "$REPO_ROOT/" 2>/dev/null || true
+  echo "[SETUP] Repo files copied to $REPO_ROOT/"
+fi
+
 # Code Ocean requires results to be written to /results to appear in the
 # computation snapshot. Fall back to $REPO_ROOT/results locally.
 if [[ -d "/results" ]]; then
