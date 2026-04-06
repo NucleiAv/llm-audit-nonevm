@@ -41,31 +41,31 @@ Tandon School of Engineering, New York University}
 
 % -----------------------------------------------------------------------
 \begin{abstract}
-LLM-based smart contract auditing tools have proliferated rapidly, yet almost
-all of them target Ethereum. Solana and Algorand, each with substantial
-developer communities, have received far less attention from the security
-research community.
-We address this gap with a benchmarking study of three frontier
-models---GPT-4o, Claude Sonnet~4, and Llama-3.3-70B-Instruct---evaluated
-under zero-shot, chain-of-thought (CoT), and retrieval-augmented generation
-(RAG) prompting across 24 annotated smart contracts spanning eight
-vulnerability classes on two non-EVM chains.
-Each contract comes with a patched version, enabling false positive rate
-measurement on known-clean code.
-Across 216 runs we measure detection rate (DR), false positive rate (FPR),
-explanation quality score (EQS, 1--5 scale), and reasoning coherence (RC).
-CoT achieves 100\% DR with zero false positives on all models.
-Overall FPR is 5.1\%, though RAG~+~Claude~Sonnet~4 reaches 16.7\%.
-Zero-shot DR collapses to 33\% on the subtlest Solana class (V2, account
-confusion).
-Claude Sonnet~4 produces substantially richer explanations (EQS 4.24) than
-GPT-4o (2.88) or Llama-3.3-70B (3.01).
-Llama-3.3-70B applies EVM-specific concepts incorrectly in up to 25\% of
-Algorand zero-shot runs, reflecting limited PyTEAL coverage in its
+Almost every LLM-based smart contract auditing tool targets Ethereum.
+Solana and Algorand---each with active developer communities and
+significant value at stake---have been almost entirely ignored by the
+security research community.
+We ran a controlled benchmark: three frontier models (GPT-4o,
+Claude Sonnet~4, Llama-3.3-70B-Instruct) under zero-shot, chain-of-thought
+(CoT), and retrieval-augmented generation (RAG) prompting, evaluated on
+24 annotated smart contracts spanning eight vulnerability classes across
+these two non-EVM chains.
+Every contract comes with a patched version so we can also measure how
+often models cry wolf on code that's been fixed.
+From 216 total runs, chain-of-thought prompting achieves 100\% detection
+with zero false positives across all three models.
+RAG helps on Algorand but drives false positive rates up---Claude~Sonnet~4
+under RAG reaches 16.7\% FPR.
+The subtlest Solana class (V2, account confusion) defeats GPT-4o zero-shot
+at 33\% DR.
+Claude Sonnet~4 writes markedly richer explanations (EQS 4.24) than
+either GPT-4o (2.88) or Llama-3.3-70B (3.01).
+Llama-3.3-70B applies EVM concepts incorrectly in up to a quarter of
+Algorand zero-shot runs, which reflects how thin PyTEAL coverage is in its
 pre-training data.
-Code, contracts, and raw outputs are at
-\url{https://github.com/NucleiAv/llm-audit-nonevm}; a reproducible capsule
-is on Code Ocean (\url{https://doi.org/10.24433/CO.1982416.v1}).
+Code, contracts, and raw model outputs are at
+\url{https://github.com/NucleiAv/llm-audit-nonevm}; a fully reproducible
+capsule is on Code Ocean (\url{https://doi.org/10.24433/CO.1982416.v1}).
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -80,48 +80,49 @@ blockchain security
 
 \lettrine[nindent=0em,slope=-.5em]{I}{n} February 2022, an attacker minted
 120{,}000 wrapped Ether tokens on the Wormhole bridge without depositing
-collateral, ultimately walking away with \$320~million~\cite{halborn2022wormhole,certik2022wormhole}.
-The vulnerability was in a Solana program written in Rust.
-Specifically, the program accepted a crafted \texttt{SignatureSet} account that
-circumvented the Secp256k1 signature verification step---an attack that exploits
-Solana's account model in a way that has no equivalent in
-Ethereum~\cite{kudelski2022wormhole,immunebytes2022wormhole}.
-No Ethereum-targeted static analyzer (Slither, Mythril, Oyente) would have
-flagged it; the vulnerability was not expressible in Solidity.
+any collateral---and walked away with \$320~million~\cite{halborn2022wormhole,certik2022wormhole}.
+The vulnerability lived in a Rust program on Solana.
+Specifically, the program accepted a crafted \texttt{SignatureSet} account
+that bypassed Secp256k1 signature verification, exploiting account model
+mechanics that have no Ethereum equivalent~\cite{kudelski2022wormhole,immunebytes2022wormhole}.
+Slither, Mythril, Oyente---none of them would have caught it.
+The flaw wasn't even expressible in Solidity.
 
-This points to a structural gap that has persisted for years.
-Solana and Algorand are real platforms with real money at stake, but nearly
-all of the automated vulnerability detection literature is Ethereum-centric.
-One recent survey catalogued 113 LLM-based audit tools for Ethereum,
-about 12 for Solana, and essentially none for Algorand~\cite{li2025solana}.
-The first automated vulnerability scanner for Solana, VRust~\cite{cui2022vrust},
-only appeared in 2022.
-The most relevant prior work is Boi and Esposito~\cite{boi2025prompt}, who
-benchmarked open-source LLMs on synthetic Solana and Algorand contracts.
-Their study did not test commercial frontier models, did not include a RAG
-condition, and did not measure false positive rates on patched code---gaps
-that this paper fills.
+And yet, that's where most of the tooling remains focused.
+Solana and Algorand are real platforms with real money, but the
+automated vulnerability detection literature is overwhelmingly
+Ethereum-centric.
+A recent survey counted 113 LLM-based audit tools for Ethereum, roughly 12 for
+Solana, and essentially zero for Algorand~\cite{li2025solana}.
+VRust~\cite{cui2022vrust}, the first automated vulnerability scanner built
+for Solana, didn't appear until CCS 2022.
+The closest prior work to ours is Boi and Esposito~\cite{boi2025prompt},
+who benchmarked open-source LLMs on synthetic Solana and Algorand contracts.
+But their study didn't test any commercial frontier models, didn't include
+a RAG condition, and didn't measure false positive rates on patched
+code---each of which this paper addresses.
 
-Our contributions are as follows.
-First, we release a benchmark of 24 vulnerable/patched contract pairs across
-eight vulnerability classes on Solana and Algorand, each grounded in a
-documented real-world exploit pattern.
-Second, we report a DR/FPR/EQS/RC scorecard across all 216 combinations of
-three frontier LLMs and three prompting strategies.
-Third, we show that prompting strategy is a stronger predictor of detection
-performance than model identity, that Algorand is consistently harder than
-Solana, and that EVM-specific hallucinations remain a genuine failure mode for
-all tested models on PyTEAL code.
-Fourth, we release reproduction tooling covering RAG index construction,
-experiment execution, auto-scoring, and figure generation.
+Four things are contributed here.
+We release a benchmark of 24 vulnerable/patched contract pairs covering eight
+vulnerability classes on Solana and Algorand, each grounded in a documented
+real-world exploit pattern rather than invented to inflate numbers.
+We report a DR/FPR/EQS/RC scorecard across all 216 combinations of three
+frontier LLMs and three prompting strategies.
+We show that prompting strategy is a stronger predictor of detection accuracy
+than model identity---that Algorand is consistently harder than Solana---and
+that EVM-specific hallucinations remain a genuine failure mode even for
+strong models on PyTEAL code.
+We release complete reproduction tooling: RAG index construction, experiment
+execution, auto-scoring, and figure generation, all runnable from a single
+command.
 
-The paper is organized as follows:
+The paper proceeds as follows.
 Section~\ref{sec:background} reviews related work;
 Section~\ref{sec:dataset} describes the dataset;
 Section~\ref{sec:methodology} details the experimental design;
 Section~\ref{sec:results} presents results;
 Section~\ref{sec:discussion} interprets findings;
-Section~\ref{sec:threats} discusses validity; and
+Section~\ref{sec:threats} addresses validity; and
 Section~\ref{sec:conclusion} concludes.
 
 % -----------------------------------------------------------------------
@@ -130,78 +131,88 @@ Section~\ref{sec:conclusion} concludes.
 
 \subsection{EVM Smart Contract Security Tools}
 
-The Ethereum tooling ecosystem is well-established.
-Slither~\cite{feist2019slither}, a Python-based static analysis framework,
-implements over 80 Solidity detectors and has become a standard baseline for
-smart contract analysis research.
-Mythril applies symbolic execution to EVM bytecode to find integer overflows,
-reentrancy bugs, and access control issues.
-More recently, LLM-based tools have emerged: GPTScan~\cite{sun2024gptscan}
-combines GPT-4 with program analysis for logic vulnerability detection;
-LLM-SmartAudit~\cite{wei2024llmsmartaudit} proposes a multi-agent approach for
-Solidity auditing; Smart-LLaMA-DPO~\cite{yu2025smartllama} applies direct
-preference optimization to LLaMA specifically for EVM vulnerability detection.
-The LLM4Vuln~\cite{liu2024llm4vuln} benchmark framework decouples vulnerability
-knowledge from reasoning ability and identifies chain-of-thought prompting as a
-significant driver of LLM detection performance.
-What these tools share is their exclusive focus on Ethereum.
-Surveys of the field~\cite{sheng2025llmsurvey,li2025survey} report that fewer
-than 10\% of published tools target any non-EVM chain.
+The Ethereum tooling ecosystem is mature enough to have produced real
+standards.
+Slither~\cite{feist2019slither} is a Python static analysis framework with
+over 80 Solidity detectors; it's the default baseline in most smart
+contract security research.
+Mythril goes lower, applying symbolic execution to raw EVM bytecode to find
+integer overflows, reentrancy bugs, and access control failures.
+LLM-based tools have followed: GPTScan~\cite{sun2024gptscan} pairs GPT-4
+with program analysis for logic vulnerability detection;
+LLM-SmartAudit~\cite{wei2024llmsmartaudit} takes a multi-agent approach to
+Solidity auditing; and Smart-LLaMA-DPO~\cite{yu2025smartllama} applies direct
+preference optimization to LLaMA~2 for EVM-specific detection.
+The LLM4Vuln framework~\cite{liu2024llm4vuln} decouples vulnerability
+knowledge from reasoning ability and identifies chain-of-thought prompting as
+a significant driver of detection performance.
+What nearly all of these share, though, is exclusive focus on Ethereum.
+Surveys of the broader field~\cite{sheng2025llmsurvey,li2025survey} report
+that fewer than 10\% of published tools target any non-EVM chain.
 
 \subsection{Non-EVM Blockchain Security}
 
 VRust~\cite{cui2022vrust} was the first automated security framework built
-specifically for Solana, appearing at CCS 2022.
-It applies static analysis over Rust intermediate representations to detect
-eight vulnerability classes and established the first taxonomy of Solana-specific
-weaknesses.
-A subsequent survey by Li~et~al.~\cite{li2025solana} maps those classes to
-documented production exploits, finding that arithmetic overflow and bump seed
-canonicalization failures are among the most common in deployed programs.
+specifically for Solana.
+It applies static analysis over Rust intermediate representations,
+detecting eight vulnerability classes and establishing the first taxonomy
+of Solana-specific weaknesses.
+Li~et~al.~\cite{li2025solana} extended that taxonomy by mapping classes to
+documented production exploits, finding that arithmetic overflow and bump
+seed canonicalization failures are among the most common in deployed programs.
 
-For Algorand, security research is sparser.
+For Algorand, research is genuinely sparse.
 The Algorand Foundation's developer documentation remains one of the primary
-references for PyTEAL/AVM security properties.
-OWASP's Smart Contract Top 10 2025~\cite{owasp2025sc} provides a cross-chain
-taxonomy.
-Practitioner-focused surveys by Threesigma~\cite{threesigma2024solana} and
-Fedorov~\cite{fedorov2024solana} cover common Solana program pitfalls from an
-auditor's perspective.
+references for PyTEAL/AVM security properties---which is to say, the academic
+literature hasn't caught up.
+OWASP's Smart Contract Top 10 2025~\cite{owasp2025sc} provides cross-chain
+vulnerability taxonomy useful as a baseline.
+Practitioner-focused guides from Threesigma~\cite{threesigma2024solana} and
+Fedorov~\cite{fedorov2024solana} cover common Solana program pitfalls from
+the auditor's perspective, but Algorand-specific depth is limited.
 
-Boi and Esposito~\cite{boi2025prompt} conducted the study closest to ours,
-comparing prompt engineering against fine-tuning for LLM-based vulnerability
-detection on both Solana and Algorand contracts.
-Their work uses open-source models (LLaMA, Mistral, CodeBERT variants) with
-five synthetic contract instances per class under zero-shot and CoT conditions.
-It does not evaluate GPT-4o or Claude Sonnet, does not include a RAG condition,
-and does not report false positive rates on patched code.
-They conclude that prompt engineering is competitive with fine-tuning for
-semantically rich languages like Rust but that fine-tuning provides larger
-gains for lower-level languages such as PyTEAL.
-Our work extends theirs in several directions: frontier commercial models, a
-RAG prompting condition, FPR measurement on paired patched contracts, and
-exploit-grounded rather than purely synthetic instances.
+The work by Boi and Esposito~\cite{boi2025prompt} is the most directly
+relevant prior study.
+They compared prompt engineering against fine-tuning for LLM-based vulnerability
+detection on both chains, using open-source models (LLaMA, Mistral, CodeBERT
+variants) with five synthetic instances per class.
+GPT-4o and Claude Sonnet were not evaluated; neither was a RAG condition; and
+false positive rates on patched code were not reported.
+Their headline finding: prompt engineering is competitive with fine-tuning on
+semantically rich languages like Rust, but fine-tuning has a larger edge on
+lower-level languages such as PyTEAL.
+Our study extends theirs in multiple directions---frontier commercial models,
+a RAG condition, FPR measurement on paired patched contracts, and exploit-grounded
+rather than purely synthetic instances.
 
 \subsection{Prompting Strategies for Code Analysis}
 
-Three prompting strategies are compared in this study.
-In zero-shot prompting, the model receives only the contract and an audit
-instruction, with no examples or retrieved context.
+Three strategies are compared in this study, chosen to span the design space
+from minimal to knowledge-augmented.
+
+Zero-shot is the baseline: the model gets the contract plus an audit
+instruction and nothing else---no examples, no retrieved context.
+This is also what you get when a developer pastes code into a chat interface
+and asks ``does this look secure?''
+
 Chain-of-thought (CoT) prompting~\cite{liu2024llm4vuln} adds an explicit
 directive to reason step-by-step through each vulnerability class before
-producing a verdict; this approach has been shown to improve performance on
-structured analysis tasks.
+producing a verdict.
+The key mechanism is forcing the model to commit to a reasoning trace,
+which has been shown to reduce superficial pattern matching.
+
 Retrieval-augmented generation (RAG)~\cite{sun2024propertygpt} prepends
-semantically retrieved passages from a reference corpus to the prompt, allowing
-the model to draw on domain-specific documentation not well-covered in
-pre-training data.
-PropertyGPT~\cite{sun2024propertygpt} demonstrated that RAG significantly
-improves formal property generation for smart contracts, motivating its
-inclusion here.
-All three strategies are applied to both chains and all three models, yielding a
-$3 \times 3 \times 2$ factorial design.
-Related work on transformer-based and LLM approaches to code vulnerability
-detection appears in Hossain~\cite{hossain2025llmsc},
+semantically retrieved passages from a reference corpus---in our case,
+documentation on the specific vulnerability patterns the model should be
+looking for.
+PropertyGPT~\cite{sun2024propertygpt} found RAG substantially improved formal
+property generation for smart contracts, which is what motivated its inclusion
+here.
+All three strategies are crossed with all three models and both chains,
+giving a $3 \times 3 \times 2$ factorial structure.
+
+Related transformer-based and LLM approaches to code vulnerability detection
+appear in Hossain~\cite{hossain2025llmsc},
 Thapa~et~al.~\cite{thapa2022transformer}, and
 Wei~et~al.~\cite{wei2025logicmeets}.
 
@@ -211,85 +222,113 @@ Wei~et~al.~\cite{wei2025logicmeets}.
 
 \subsection{Design Principles}
 
-The benchmark has 24 vulnerable contract instances, each paired with a patched
-version, covering eight vulnerability classes across two chains.
-Every vulnerable instance is grounded in a documented real-world exploit pattern
-or a class identified in the academic literature; nothing here was invented to
-inflate detection numbers.
-Three instances per class let us control for within-class variance: the first
-replicates the canonical exploit as closely as possible (e.g., the Jet Protocol
-signer omission for V1), the second varies the surrounding program logic while
-keeping the core flaw, and the third introduces a subtle variant that requires
-understanding the vulnerability semantics rather than matching surface syntax.
+The benchmark contains 24 vulnerable contract instances, each paired with a
+patched version.
+Eight vulnerability classes, two chains, three instances per class.
+Every class is grounded in a documented real-world exploit pattern or an
+academically identified weakness---nothing was invented to make detection
+look easier.
+
+The three-instance-per-class design serves a specific purpose: it lets us
+control for within-class variance.
+Instance one replicates the canonical exploit as closely as possible (the Jet
+Protocol signer omission for V1, for example).
+Instance two varies the surrounding program logic while keeping the core flaw
+structurally intact.
+Instance three introduces a subtle variant that only reveals itself to a model
+that genuinely understands the vulnerability's semantics, not one that's
+pattern-matching on surface syntax.
 
 \subsection{Solana Vulnerability Classes}
 
 Solana programs are written in Rust using the Anchor
 framework~\cite{ferrante2022sealevel,sec32022audit}.
 
-\textbf{V1: Missing signer check.} Anchor lets account structs declare an account
-as \texttt{AccountInfo<'info>} (unauthenticated) rather than \texttt{Signer<'info>}
+\textbf{V1: Missing signer check.}
+Anchor gives you two ways to declare an account in a struct:
+\texttt{AccountInfo<'info>} (unauthenticated) or \texttt{Signer<'info>}
 (requiring a valid signature).
-Programs that accept admin or owner accounts as \texttt{AccountInfo} without
-explicit validation let any caller impersonate privileged roles.
-The pattern is documented in Sec3's audit methodology~\cite{sec32022audit} and
-appears in the Jet Protocol 2021 audit finding.
+When an admin or owner account is declared as \texttt{AccountInfo} without
+explicit downstream validation, any caller can impersonate privileged roles
+by passing an arbitrary account.
+Sec3's audit methodology~\cite{sec32022audit} flags this as one of the
+most common Solana findings; the Jet Protocol 2021 audit surfaced a
+textbook example.
 
-\textbf{V2: Account confusion (type confusion).} Solana's account model lets
-programs accept any account at a given instruction position.
-Without an \texttt{owner} check or a type discriminant, an attacker can pass the
-wrong account type where a specific one is expected.
-The Cashio exploit~\cite{halborn2022cashio} is the canonical case: a fake
-collateral mint was accepted because the program validated the amount but not
-the mint address.
+\textbf{V2: Account confusion (type confusion).}
+Solana's account model accepts any account at a given instruction position
+unless the program enforces constraints.
+Without an \texttt{owner} check or a type discriminant, an attacker can
+swap in the wrong account type---the program reads whatever's passed.
+The Cashio exploit~\cite{halborn2022cashio} illustrates this precisely:
+a fake collateral mint passed validation because the program checked amounts
+but not the mint address.
+This is our benchmark's hardest class for zero-shot models, and V2 is the one
+case where GPT-4o's zero-shot DR drops to 33\%.
 
-\textbf{V3: Arithmetic overflow on u64.} Rust release builds do not panic on
-integer overflow by default; arithmetic wraps silently.
-Yield vault calculations of the form \texttt{amount * rate} are particularly
-dangerous because both operands can be large, producing a wrapped result that
-dramatically overstates the payout.
-The fix is \texttt{checked\_mul().ok\_or(VaultError::Overflow)?}.
+\textbf{V3: Arithmetic overflow on u64.}
+Release-mode Rust does not panic on integer overflow by default.
+Arithmetic simply wraps.
+Yield vault calculations like \texttt{amount * rate} are particularly
+dangerous---both operands can be large, the wrapped result dramatically
+overstates the payout, and the compiler won't tell you anything went wrong.
+The correct fix is \texttt{checked\_mul().ok\_or(VaultError::Overflow)?};
+it's one line and essentially free at runtime.
 
-\textbf{V4: Bump seed canonicalization.} Solana program-derived addresses (PDAs)
-are found by iterating bump seeds from 255 downward until a valid off-curve point
-is found; the canonical bump is the highest valid value.
-Programs that accept a user-supplied bump via \texttt{create\_program\_address}
-instead of \texttt{find\_program\_address} permit non-canonical PDAs, enabling
-signature forgery for program-owned accounts~\cite{ferrante2022sealevel}.
+\textbf{V4: Bump seed canonicalization.}
+Program-derived addresses (PDAs) on Solana are found by iterating
+bump seeds from 255 downward until a valid off-curve point appears;
+the canonical bump is the highest valid value.
+If a program accepts a user-supplied bump via \texttt{create\_program\_address}
+rather than computing it via \texttt{find\_program\_address}, an attacker
+can pass a non-canonical bump and forge signatures for program-owned
+accounts~\cite{ferrante2022sealevel}.
+This is subtle. The code compiles, the PDA looks valid, and the flaw only
+becomes visible when you reason about canonicality.
 
-\textbf{V5: Stale account data after CPI.} When a Solana program calls out
-via a cross-program invocation (CPI), its in-memory account data is not
-automatically refreshed.
-Reading account fields after a CPI that modifies those fields means the program
-is operating on pre-CPI data, which can enable double-withdrawal exploits.
+\textbf{V5: Stale account data after CPI.}
+When a Solana program makes a cross-program invocation (CPI), its in-memory
+account data is not automatically refreshed.
+Reading account fields after a CPI that modified those fields means operating
+on pre-CPI state---exactly the setup for double-withdrawal exploits.
+Like V4, this one compiles fine and behaves correctly in most test conditions;
+the bug only triggers under specific call sequences.
 
 \subsection{Algorand Vulnerability Classes}
 
 Algorand applications are written in PyTEAL, a Python eDSL that compiles to
 Algorand Virtual Machine (AVM) bytecode.
 
-\textbf{V6: Logic signature (LogicSig) abuse.} Algorand LogicSigs are stateless
-programs that authorize transactions without on-chain state.
-A LogicSig that does not constrain the receiver, fee, or lease fields can be
-replayed by anyone who obtains the program bytes, enabling unauthorized asset
-transfers.
+\textbf{V6: Logic signature (LogicSig) abuse.}
+Algorand LogicSigs are stateless programs---they authorize transactions
+without on-chain state.
+That statelessness is the trap: a LogicSig that doesn't constrain the
+receiver, fee, or lease fields can be replayed by anyone who obtains the
+program bytes.
+Unauthorized asset transfers follow naturally.
 
-\textbf{V7: Group transaction manipulation.} Algorand supports atomic groups of
-up to 16 transactions.
-Applications that validate only \texttt{Gtxn[0]} without asserting
-\texttt{Global.group\_size()} let attackers reorder or prepend transactions,
-substituting a malicious one in the expected position.
+\textbf{V7: Group transaction manipulation.}
+Algorand supports atomic groups of up to 16 transactions, which is a
+genuinely useful feature---but also an attack surface.
+An application that validates only \texttt{Gtxn[0]} without asserting
+\texttt{Global.group\_size()} lets attackers reorder transactions or
+prepend a malicious one in the expected position.
+The fix requires one assertion. But without it, the program's trust
+in the first transaction generalizes to the whole group.
 
-\textbf{V8: Unchecked asset receiver and fee fields.} Asset transfer transactions
-carry \texttt{asset\_receiver}, \texttt{close\_remainder\_to}, and \texttt{rekey\_to}
-fields that, left unchecked, let attackers redirect funds or take over account
-control even when the amount and asset ID look correct.
+\textbf{V8: Unchecked asset receiver and fee fields.}
+Asset transfer transactions on Algorand carry \texttt{asset\_receiver},
+\texttt{close\_remainder\_to}, and \texttt{rekey\_to} fields.
+When these go unchecked, an attacker can redirect funds or take over
+account control even while the amount and asset ID look perfectly correct.
+It's a reminder that validating the obvious fields isn't the same as
+validating the transaction.
 
 \subsection{Dataset Statistics}
 
-Table~\ref{tab:dataset} summarizes the dataset.
-All 24 vulnerable contracts and their patched counterparts are in the repository
-under \texttt{contracts/}.
+Table~\ref{tab:dataset} summarizes the full dataset.
+All 24 vulnerable contracts and their patched counterparts are in the
+repository under \texttt{contracts/}.
 
 \begin{table}[!t]
 \centering
@@ -319,37 +358,32 @@ V8 & Unchecked asset fields        & Algorand & 3 \\
 
 \subsection{Experimental Design}
 
-Three models, three prompting strategies, 24 contracts: $24 \times 3 \times 3 = 216$
-total runs.
+Three models, three prompting strategies, 24 contracts: $24 \times 3 \times 3
+= 216$ total runs.
 
-\textbf{Models.}
-\begin{itemize}
-  \item GPT-4o (\texttt{gpt-4o-2024-08-06}): OpenAI's frontier multimodal model.
-  \item Claude Sonnet~4 (\texttt{claude-sonnet-4-20250514}): Anthropic's
-    code-capable model as of the experiment date.
-  \item Llama-3.3-70B-Instruct (\texttt{meta-llama/Llama-3.3-\\70B-Instruct-Turbo}):
-    Meta's open-weights instruction model, served via Together~AI.
-\end{itemize}
-All models run at temperature 0 for deterministic outputs.
-Maximum output length is 4{,}096 tokens.
+For models, we used GPT-4o (\texttt{gpt-4o-2024-08-06}), Claude Sonnet~4
+(\texttt{claude-sonnet-4-20250514}), and Llama-3.3-70B-Instruct
+(\texttt{meta-llama/Llama-3.3-\\70B-Instruct-Turbo}) served via Together~AI.
+These three represent different model families and training approaches:
+one from OpenAI, one from Anthropic, and one open-weights model.
+All models ran at temperature 0 for deterministic outputs, with a maximum
+output length of 4{,}096 tokens.
 
-\textbf{Prompting strategies.}
-\begin{itemize}
-  \item \emph{Zero-shot}: Contract source code plus an instruction to identify
-    vulnerabilities. No examples, no retrieved context.
-  \item \emph{Chain-of-thought (CoT)}: The same instruction extended with an
-    explicit enumeration of all vulnerability classes for the target chain and a
-    directive to reason step-by-step about each class before producing a verdict.
-  \item \emph{Retrieval-augmented generation (RAG)}: The top-3 most semantically
-    similar passages retrieved from a reference corpus (using FAISS~\cite{liu2024llm4vuln}
-    with OpenAI \texttt{text-embedding-3-small} embeddings) are prepended as
-    context before the standard audit instruction.
-    The corpus consists of five documents: Sec3's Solana audit
-    methodology~\cite{sec32022audit}, the Anchor sealevel-attacks
-    reference~\cite{ferrante2022sealevel}, OtterSec's published audit patterns,
-    the Algorand Developer Portal security documentation, and the Boi~\&~Esposito
-    vulnerability taxonomy~\cite{boi2025prompt}.
-\end{itemize}
+The prompting strategies span from minimal to knowledge-augmented.
+Zero-shot gives the model only the contract source code and an instruction
+to identify vulnerabilities---no examples, no retrieved context, no
+hand-holding.
+CoT (chain-of-thought) extends that instruction to include an explicit
+enumeration of all vulnerability classes for the target chain and a directive
+to reason step-by-step about each class before issuing a verdict.
+RAG prepends the top-3 most semantically similar passages retrieved from a
+reference corpus using FAISS~\cite{liu2024llm4vuln} with OpenAI
+\texttt{text-embedding-3-small} embeddings.
+The corpus covers five documents: Sec3's Solana audit
+methodology~\cite{sec32022audit}, the Anchor sealevel-attacks
+reference~\cite{ferrante2022sealevel}, OtterSec's published audit patterns,
+the Algorand Developer Portal security documentation, and the Boi~\&~Esposito
+vulnerability taxonomy~\cite{boi2025prompt}.
 
 \subsection{Prompt Templates}
 
@@ -363,14 +397,14 @@ type, (2) the vulnerable lines or functions, (3) the attack scenario, and
 appears secure. Contract: \{contract\_code\}}
 \end{quote}
 
-CoT prompts extend zero-shot with an explicit reasoning step:
+CoT prompts add an explicit reasoning step before the verdict:
 \begin{quote}
 \textit{For each class, reason step by step about whether the following contract
 contains that vulnerability. State your chain of thought before your final
 verdict.}
 \end{quote}
 
-RAG prompts prepend the retrieved passages:
+RAG prompts prepend retrieved passages ahead of the standard instruction:
 \begin{quote}
 \textit{[Retrieved context: \{retrieved\_context\}]\newline
 Given the above security references, analyze this contract for vulnerabilities
@@ -379,47 +413,46 @@ matching the patterns described. \{standard audit instruction\}}
 
 \subsection{Evaluation Metrics}
 
-\textbf{Detection rate (DR).}
-DR~$= 1$ if the model's response correctly names the vulnerability class
-\emph{and} identifies the vulnerable code location; DR~$= 0$ otherwise.
-Scoring uses keyword matching against a per-class list (e.g.,
-\texttt{"bump seed"}, \texttt{"canonical bump"}, \texttt{"find\_program\_address"}
-for V4), with manual review for borderline cases.
+\textbf{Detection rate (DR)} is binary: DR~$= 1$ if the model correctly names
+the vulnerability class and identifies the vulnerable code location;
+DR~$= 0$ otherwise.
+Scoring uses keyword matching against a per-class list---for V4, keywords
+include \texttt{"bump seed"}, \texttt{"canonical bump"}, and
+\texttt{"find\_program\_address"}---with manual review covering borderline
+cases.
 
-\textbf{False positive rate (FPR).}
-On patched contracts, FPR~$= 1$ if the model incorrectly claims a vulnerability
-is present; FPR~$= 0$ otherwise.
-The automated scorer is section-aware and negation-aware.
-For CoT responses, only the section corresponding to the patched vulnerability
-class is examined, so a positive finding on a different class does not inflate
-the score.
-Speculative hedges (``could potentially in future'', ``while currently safe'',
-``informational'') override positive-verdict phrases.
-Structured verdict patterns (``Presence: Absent'', ``Status: ABSENT'') are
-treated as strong negatives.
-Ambiguous cases (keyword present, no clear verdict) default to FPR~$= 0$.
+\textbf{False positive rate (FPR)} is measured on the patched contracts.
+FPR~$= 1$ if the model incorrectly claims a vulnerability is present;
+FPR~$= 0$ otherwise.
+The scorer is section-aware: for CoT responses, only the section for the
+patched vulnerability class is checked, so a positive finding on a different
+class doesn't inflate the score.
+Speculative hedges (``could potentially in future,'' ``while currently safe,''
+``informational'') override positive-verdict phrases, and structured patterns
+like ``Presence: Absent'' or ``Status: ABSENT'' are treated as strong negatives.
+Ambiguous cases default to FPR~$= 0$.
 
-\textbf{Explanation quality score (EQS).}
-A 1 to 5 rubric: 1 = no detection; 2 = correct detection only; 3 = detection
-plus code location; 4 = detection plus location plus attack scenario;
-5 = all of the above plus a correct fix recommendation.
-EQS is computed automatically for DR~$= 1$ runs using regex patterns and verified
-by manual review on a random 20\% sample.
+\textbf{Explanation quality score (EQS)} runs from 1 to 5.
+Score 1 means no detection; 2 means correct detection only; 3 adds code
+location; 4 adds the attack scenario; and 5 requires a correct fix
+recommendation on top of all of that.
+EQS is computed automatically for DR~$= 1$ runs and verified by manual review
+on a random 20\% sample.
 
-\textbf{Reasoning coherence (RC).}
-RC~$= 0$ if the response contains any EVM-specific hallucination in a non-EVM
-context (reentrancy cited in Solana terms, gas limits invoked for AVM, Solidity
-syntax in a PyTEAL response).
-Scored automatically against 11 EVM hallucination keywords; verified manually.
+\textbf{Reasoning coherence (RC)} flags EVM-specific hallucinations in
+non-EVM contexts: reentrancy cited in Solana terms, gas limits invoked for
+AVM, Solidity syntax appearing in a PyTEAL response.
+RC~$= 0$ if any of 11 EVM hallucination keywords appear; verified manually.
 
 \subsection{Reproducibility}
 
+The entire pipeline runs from a single script.
 \texttt{scripts/run\_experiments.py} handles all 216 runs, reading contracts
-from \texttt{contracts/}, constructing prompts from \texttt{prompts/}, calling
-the model APIs, and writing raw JSON outputs to \texttt{results/raw\_outputs/}.
+from \texttt{contracts/}, building prompts from \texttt{prompts/}, querying
+the APIs, and writing raw JSON outputs to \texttt{results/raw\_outputs/}.
 \texttt{scripts/score\_outputs.py} reads those outputs and produces
 \texttt{results/scores.csv}.
-\texttt{scripts/analyze.py} generates the figures.
+\texttt{scripts/analyze.py} generates all figures from scores.csv.
 \texttt{scripts/rag\_index.py} builds the FAISS index from \texttt{rag\_corpus/}.
 Estimated API cost for the full 216-run suite is under \$20.
 A fully reproducible compute capsule with all code, contracts, prompts,
@@ -432,11 +465,12 @@ raw outputs, and pre-computed scores is at
 
 \subsection{Detection Rate by Prompting Strategy}
 
-CoT hits 100\% DR across all three models and both chains.
-Explicit step-by-step reasoning over the known vulnerability taxonomy fully
-closes the detection gap for this benchmark.
-RAG reaches 95.8\% DR overall (100\% on Solana, 88.9\% on Algorand), and
-zero-shot comes in at 93.1\% (88.9\% on Algorand).
+The headline finding is straightforward: CoT achieves 100\% DR across all
+three models and both chains.
+Step-by-step reasoning over a known vulnerability taxonomy fully closes the
+detection gap---at least for this benchmark.
+RAG reaches 95.8\% DR overall (100\% on Solana, 88.9\% on Algorand).
+Zero-shot comes in at 93.1\%, dragged down by Algorand's 88.9\%.
 By model, GPT-4o and Claude Sonnet~4 each reach 97.2\% DR; Llama-3.3-70B
 reaches 94.4\%.
 
@@ -454,16 +488,16 @@ deviation across vulnerability classes.}
 
 \subsection{Detection Rate by Vulnerability Class}
 
-Seven of the eight vulnerability classes reach 100\% DR under CoT across all
-models.
-The exception is V2 (account confusion): GPT-4o zero-shot reaches only 33\%,
-recovering to 100\% under CoT.
-This pattern tracks the nature of the flaw. V2 is not a missing assertion but a
-missing type constraint, and detecting it requires reasoning about Anchor's
-account validation model rather than spotting an absent check.
-All Algorand classes (V6 through V8) reach 100\% DR under all strategies and models.
+Seven of the eight classes hit 100\% DR under CoT across all models.
+The exception is V2 (account confusion).
+GPT-4o zero-shot reaches only 33\% DR on V2, recovering to 100\% under CoT.
+This tracks the nature of the flaw: V2 isn't a missing assertion but a
+missing type constraint, and detecting it requires reasoning about how Anchor's
+account validation model actually works, not spotting an absent check.
+All Algorand classes (V6 through V8) reach 100\% under all strategies and
+models---though the FPR picture for Algorand is worse, as discussed next.
 
-Figure~\ref{fig:heatmap} shows a heatmap of DR by vulnerability class and
+Figure~\ref{fig:heatmap} shows DR by vulnerability class and
 strategy-model combination.
 
 \begin{figure}[!t]
@@ -513,27 +547,27 @@ contract instances per class.}
 
 \subsection{False Positive Rate}
 
-Overall FPR is 5.1\%, below the 0.10 threshold.
-CoT achieves 0.0\% FPR across all three models; zero-shot averages 4.2\%.
-RAG is the weakest at 11.1\% average FPR.
+Overall FPR is 5.1\%---below the 0.10 threshold we set as an acceptability
+criterion.
+But the aggregate hides a lot of variance.
 
-Three of the nine strategy-model pairs exceed the 0.10 threshold:
-Zero-Shot~+~Llama-3.3-70B (12.5\%), RAG~+~Claude~Sonnet~4 (16.7\%), and
-RAG~+~Llama-3.3-70B (12.5\%).
-All GPT-4o configurations and all CoT configurations stay below it.
+CoT achieves 0.0\% FPR across all three models, and the mechanism is
+clear: CoT's structured per-class verdict format (``Presence: Absent'') leaves
+little room for the hedged language that our scorer treats as a positive.
+Zero-shot averages 4.2\%.
+RAG is the weakest strategy at 11.1\% average FPR---three of the nine
+strategy-model pairs exceed the 0.10 threshold, and all three involve RAG.
+Specifically: Zero-Shot~+~Llama-3.3-70B (12.5\%), RAG~+~Claude~Sonnet~4
+(16.7\%), and RAG~+~Llama-3.3-70B (12.5\%).
+All GPT-4o configurations and all CoT configurations stay below the threshold.
 Per-model averages: GPT-4o 1.4\%, Claude Sonnet~4 5.6\%, Llama-3.3-70B 8.3\%.
 
-CoT's clean FPR record comes from its structured per-class verdict format
-(``Presence: Absent''), which leaves little room for ambiguity.
-RAG's higher FPR is consistent with retrieved vulnerability-pattern descriptions
-reinforcing concern even on patched code, causing models to hedge rather than
-commit to a clean verdict.
-At the class level, V7 (Group TX) and V8 (Unchecked Fields) are the only
-classes above the threshold at 11.1\% each; V3 (Arithmetic Overflow) and V4
-(Bump Seed) achieve 0.0\% FPR across all models and strategies.
+At the class level, V7 (Group TX) and V8 (Unchecked Fields) each sit at
+11.1\% FPR; V3 (Arithmetic Overflow) and V4 (Bump Seed) achieve 0.0\% across
+all models and strategies.
 
-Figure~\ref{fig:fpr} shows FPR by strategy and model.
-The dashed line marks the 0.10 threshold.
+Figure~\ref{fig:fpr} shows FPR by strategy and model, with the 0.10
+threshold marked.
 
 \begin{figure}[!t]
 \centering
@@ -545,9 +579,8 @@ contracts. Dashed line: FPR~$= 0.10$ acceptability threshold.}
 
 \subsection{Tool Coverage Gap}
 
-Figure~\ref{fig:coverage} places this work in context, showing the EVM-vs-non-EVM
-coverage disparity that motivated the
-benchmark~\cite{li2025solana}.
+Figure~\ref{fig:coverage} places this work in the context of the EVM-vs-non-EVM
+coverage disparity that motivated the benchmark~\cite{li2025solana}.
 
 \begin{figure}[!t]
 \centering
@@ -560,7 +593,7 @@ no dedicated LLM tooling. Source:~\cite{li2025solana}.}
 
 \subsection{Experimental Pipeline}
 
-Figure~\ref{fig:pipeline} shows the end-to-end experimental pipeline.
+Figure~\ref{fig:pipeline} shows the end-to-end pipeline.
 
 \begin{figure}[!t]
 \centering
@@ -571,18 +604,24 @@ produce the results table and figures.}
 \label{fig:pipeline}
 \end{figure}
 
-\subsection{Explanation Quality Score Distribution}
+\subsection{Explanation Quality and Reasoning Coherence}
 
-Claude Sonnet~4 leads on explanation quality with a mean EQS of 4.24 across all
-strategies, compared to 3.01 for Llama-3.3-70B and 2.88 for GPT-4o.
-The CoT strategy yields the highest mean EQS of 3.62, ahead of 3.25 for both
-zero-shot and RAG.
-RC is 100\% under CoT for all models. Llama-3.3-70B shows the sharpest drop under
-zero-shot, falling to 75\% RC, consistent with the highest EVM hallucination rate
-on Algorand contracts.
+Claude Sonnet~4 leads on explanation quality: mean EQS 4.24 across all
+strategies.
+That's substantially ahead of both Llama-3.3-70B (3.01) and GPT-4o (2.88).
+The gap says something about more than just verbosity---Claude Sonnet~4
+consistently includes all four EQS components (detection, location, scenario,
+fix), while GPT-4o frequently stops after detection and location.
 
-Figure~\ref{fig:eqs} shows EQS distributions across prompting strategies for
-correctly detected vulnerabilities only (DR~$= 1$ runs).
+By strategy, CoT yields the highest mean EQS at 3.62, ahead of 3.25 for
+both zero-shot and RAG.
+RC is 100\% under CoT for all models.
+Llama-3.3-70B shows the sharpest degradation under zero-shot, falling to
+75\% RC, consistent with it producing the highest EVM hallucination rate
+on Algorand.
+
+Figure~\ref{fig:eqs} shows EQS distributions by prompting strategy,
+restricted to correctly detected runs.
 
 \begin{figure}[!t]
 \centering
@@ -598,29 +637,31 @@ strategy, restricted to correctly detected runs (DR~$= 1$).}
 
 \subsection{Prompting Strategy Is the Dominant Factor}
 
-Across every metric, how the model is prompted matters more than which model
-is used.
-The gap between zero-shot and CoT is large, particularly for Algorand, where
-pre-training coverage of PyTEAL is thin and models lack the scaffolding to
-reason systematically through AVM-specific vulnerability classes.
-Without explicit enumeration of what to look for, models tend toward superficial
-pattern matching.
-CoT resolves this by requiring the model to reason explicitly about each
-vulnerability class in sequence before committing to a verdict.
-RAG adds retrieved vulnerability documentation to the prompt, which helps most
-on Algorand where pre-training gaps are largest, but at the cost of elevated
-false positive rates: models shown patterns of what can go wrong appear more
-likely to flag patched code as vulnerable.
+Across every metric, how you prompt the model matters more than which model
+you use.
+The gap between zero-shot and CoT is large---and it's largest on Algorand,
+where pre-training coverage of PyTEAL is thin enough that models need the
+scaffolding to reason through AVM-specific vulnerability classes at all.
+Without explicit enumeration of what to look for, the default behavior
+is superficial pattern matching.
+CoT breaks that by requiring the model to reason explicitly about each class
+in sequence before it can issue a verdict.
 
-There is a practical point here worth making directly.
-When a developer pastes Solana or Algorand code into a general-purpose LLM
-chat interface and asks for a security review, the interaction is functionally
-a zero-shot query.
-The detection rates in Section~\ref{sec:results} tell us what to expect from
+There's a practical upshot worth stating directly.
+When a developer pastes Solana or Algorand code into a general-purpose
+chat interface for a security review, that's functionally a zero-shot query.
+The detection rates in Section~\ref{sec:results} tell you what to expect from
 that workflow.
-Adding a CoT prompt that enumerates known vulnerability classes for the target
-chain takes perhaps one extra paragraph of text and costs nothing in API terms.
-The detection improvement is substantial.
+Adding a CoT prompt that enumerates the known vulnerability classes for the
+target chain takes one extra paragraph of text and costs nothing extra in API
+terms.
+The detection improvement is real.
+
+RAG helps on Algorand (where pre-training gaps are largest) but at a cost:
+models shown examples of vulnerability patterns appear more likely to flag
+patched code as still vulnerable.
+The retrieved context seems to reinforce concern even when the flaw has been
+removed, which is why RAG~+~Claude~Sonnet~4 reaches 16.7\% FPR.
 
 \subsection{Chain Matters: Algorand Remains Harder}
 
@@ -629,84 +670,87 @@ This is consistent with Boi and Esposito~\cite{boi2025prompt}, who found that
 ``fine-tuning offers benefits primarily when dealing with abstract, lower-level
 languages such as TEAL (Algorand), where model comprehension is more limited
 under prompt engineering alone.''
-What this study adds is that the same difficulty applies to GPT-4o and
-Claude Sonnet~4 under prompt engineering, not just open-source models.
-Even the two strongest models in the evaluation show measurable difficulty on
-V6 (LogicSig abuse) and V7 (group transaction manipulation).
+What we add is that the same difficulty applies to GPT-4o and Claude Sonnet~4
+under prompt engineering---it isn't just an open-source model problem.
+Even the two strongest models show measurable difficulty on V6 (LogicSig abuse)
+and V7 (group transaction manipulation).
 
-The underlying issue is representation in pre-training corpora.
+The root issue is pre-training coverage.
 AVM execution semantics---atomic transaction groups, LogicSig statelessness,
-flat fee model---appear far less frequently in the data these models were
-trained on than Rust or Solidity semantics do.
-RAG's largest relative benefit in this study is on Algorand, which makes sense:
-it is injecting exactly the context that pre-training failed to provide.
+flat fee model---appear far less often in the data these models trained on
+than Rust or Solidity semantics do.
+RAG's largest relative benefit in this study is on Algorand, which makes
+sense: it injects exactly the context that pre-training failed to provide.
 
 \subsection{EVM Hallucinations Are a Real Problem}
 
-The RC metric captures something that DR and FPR miss: model outputs that are
-wrong in ways a practitioner might not immediately notice.
+The RC metric catches something DR and FPR miss: outputs that are wrong in ways
+a practitioner might not immediately notice.
 Across Algorand runs, examples included describing TEAL opcodes as
 ``Solidity-like,'' raising reentrancy as an Ethereum-style concern for AVM
-contracts, and flagging gas-based denial-of-service risks in a system with a
-flat fee model.
-These errors are not benign.
+contracts, and flagging gas-based denial-of-service risks in a system that
+uses a flat fee model.
+These aren't benign errors.
 A developer who receives a security report flagging non-existent runtime
-properties may waste time investigating phantom risks, or worse, may be
-distracted from an actual vulnerability that does not fit the EVM frame.
-Llama-3.3-70B produces the highest hallucination rate on Algorand in zero-shot
-conditions.
-Under CoT, all three models achieve 100\% RC, suggesting that systematic
-reasoning is also a partial corrective for cross-chain contamination.
+properties wastes time on phantom risks---or worse, gets distracted from an
+actual vulnerability that doesn't fit the EVM frame.
+
+Llama-3.3-70B produces the highest hallucination rate on Algorand under
+zero-shot.
+Under CoT, all three models reach 100\% RC.
+That's notable: systematic reasoning is apparently also a partial corrective
+for cross-chain contamination.
 
 \subsection{Performance Ceiling and Residual Hard Cases}
 
-V4 (bump seed canonicalization) and V5 (stale CPI data) are the benchmark's
-hardest cases.
-The vulnerable code in both classes compiles and runs correctly; the flaw only
-becomes apparent when reasoning about cross-instruction state or the semantics
-of PDA derivation.
-There is no syntactic signal a surface-level scanner could catch.
-Even under CoT, these classes require reasoning about what the program
+V4 and V5 are the benchmark's genuinely hard cases---not because the code
+is complex, but because the flaw only becomes apparent when you reason about
+cross-instruction state or PDA derivation semantics.
+Both compile correctly. Both behave normally in most test conditions.
+There's no syntactic signal a surface-level scanner could catch.
+Even under CoT, these require the model to reason about what the program
 \emph{implies} about system state, not just what it says in the instruction
 body.
-Combining LLMs with lightweight static analysis---VRust-style dataflow analysis
-for Solana is the natural candidate---seems necessary to reliably cover these
-cases.
+For these classes, combining LLMs with lightweight static analysis---VRust-style
+dataflow analysis for Solana is the natural candidate---seems necessary for
+reliable coverage.
 
 % -----------------------------------------------------------------------
 \section{Threats to Validity}
 \label{sec:threats}
 
 \textbf{Internal validity.}
-Both DR and RC scoring rely substantially on keyword matching.
-This can produce false negatives when a model correctly identifies a
-vulnerability but describes it in unexpected terms, and false positives when a
-keyword is present without genuine detection.
-The FPR heuristic is section-aware and negation-aware, which handles the common
-cases, but edge cases remain.
+DR and RC scoring rely substantially on keyword matching, which isn't perfect
+in either direction.
+It produces false negatives when a model correctly identifies a vulnerability
+but uses unexpected terminology, and false positives when a keyword appears
+without genuine detection.
+The FPR heuristic is section-aware and negation-aware, which handles common
+cases.
 Manual review of a random 20\% sample and inter-rater reliability checks for
-EQS reduce the risk but do not eliminate it.
+EQS reduce the risk, though edge cases remain.
 
 \textbf{Construct validity.}
-EQS operationalizes explanation quality as the presence of four textual features:
-vulnerability identification, code location, attack scenario, and a fix
-recommendation.
-This is a tractable proxy, not a complete measure of quality.
-A model that gives a terse but technically correct fix could score lower than
-a verbose one covering the same ground, and RC scoring does not catch all
-forms of factual error.
+EQS operationalizes explanation quality as the presence of four textual
+features: vulnerability identification, code location, attack scenario, and
+a fix recommendation.
+This is tractable but incomplete.
+A model giving a terse but technically correct fix could score lower than a
+verbose one covering the same ground.
+RC scoring doesn't catch all forms of factual error either.
 
 \textbf{External validity.}
-Twenty-four contract instances across eight vulnerability classes is a limited
-evaluation surface.
-The results may not hold for Solana and Algorand programs of different types,
-for classes not included in the benchmark, or for production codebases at scale.
+Twenty-four contract instances across eight classes is a limited evaluation
+surface.
+Results may not transfer to Solana and Algorand programs of different types,
+to vulnerability classes not in the benchmark, or to production codebases at
+scale.
 Each instance isolates a single vulnerability; real programs frequently contain
 multiple interacting flaws that change how individual issues manifest.
 
 \textbf{Conclusion validity.}
 With 216 runs across 24 unique contract instances, statistical significance
-testing is not meaningful.
+testing isn't meaningful.
 All findings should be read as exploratory and direction-setting.
 Confirmatory conclusions require replication at larger scale.
 
@@ -714,33 +758,35 @@ Confirmatory conclusions require replication at larger scale.
 \section{Conclusion}
 \label{sec:conclusion}
 
-This work provides, to our knowledge, the first systematic evaluation of frontier
-LLMs on vulnerability detection for non-EVM smart contracts, covering Solana
-and Algorand with a controlled dataset of 24 annotated contract pairs.
-The results reveal three clear patterns.
-Prompting strategy is a stronger determinant of detection accuracy than model
-identity: CoT achieves 100\% DR and zero false positives regardless of which
-model is used.
-Algorand consistently proves harder than Solana for all three models, which we
-attribute to limited PyTEAL representation in pre-training corpora.
-And EVM-specific hallucinations---reentrancy claims, gas-cost concerns,
-Solidity-like terminology---appear in a non-trivial fraction of Algorand runs
-even for models that perform well on Solana.
+The central finding is that prompting strategy dominates model identity for
+smart contract vulnerability detection on non-EVM chains.
+CoT achieves 100\% DR with zero false positives regardless of model.
+It also largely eliminates EVM hallucinations.
+Zero-shot, which is what most developers actually use when they paste code
+into a chat interface, works but leaves systematic gaps---most visibly on V2
+(account confusion), where GPT-4o zero-shot drops to 33\% DR.
 
-For developers, the practical implication is straightforward: a CoT prompt that
-enumerates the specific vulnerability classes of the target chain outperforms
-generic zero-shot analysis substantially and costs nothing extra in API usage.
-For the research community, the dataset, scoring scripts, and raw model outputs
-released with this paper provide a reproducible starting point for further
-work on non-EVM security analysis, an area that remains significantly
-under-resourced relative to its Ethereum counterpart.
+Algorand is harder than Solana across the board.
+Pre-training coverage of PyTEAL/AVM semantics is genuinely thin for all three
+models tested.
+RAG partially compensates for this, but it introduces false positive pressure
+in the process.
+The tradeoff is real, and practitioners should account for it.
 
-The benchmark has clear limitations---24 contracts, eight classes, isolated
-single-vulnerability instances---and should not be taken as a comprehensive
-evaluation. Future work ought to scale the contract corpus, add Move-based
-chains such as Sui and Aptos, and investigate hybrid pipelines that pair LLM
-reasoning with chain-specific static analysis to address the residual hard cases
-that prompt engineering alone cannot reliably solve.
+This work provides what we believe is the first systematic evaluation of
+frontier LLMs on vulnerability detection for non-EVM smart contracts,
+with a controlled dataset of 24 annotated contract pairs across Solana and
+Algorand.
+The dataset, scoring scripts, and raw model outputs released with the paper
+provide a reproducible starting point for further work on this
+under-resourced problem.
+
+Limitations are clear: 24 contracts, eight classes, isolated single-flaw
+instances.
+Future work ought to scale the contract corpus, add Move-based chains such as
+Sui and Aptos, and explore hybrid pipelines that pair LLM reasoning with
+chain-specific static analysis---particularly for the residual hard cases
+(V4, V5) that prompt engineering alone cannot reliably solve.
 
 % -----------------------------------------------------------------------
 \bibliographystyle{IEEEtran}
