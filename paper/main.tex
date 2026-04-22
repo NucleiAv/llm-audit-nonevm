@@ -102,19 +102,20 @@ But their study didn't test any commercial frontier models, didn't include
 a RAG condition, and didn't measure false positive rates on patched
 code---each of which this paper addresses.
 
-Four things are contributed here.
-We release a benchmark of 24 vulnerable/patched contract pairs covering eight
+Four contributions come out of this work.
+The first is a benchmark of 24 vulnerable/patched contract pairs covering eight
 vulnerability classes on Solana and Algorand, each grounded in a documented
 real-world exploit pattern rather than invented to inflate numbers.
-We report a DR/FPR/EQS/RC scorecard across all 216 combinations of three
-frontier LLMs and three prompting strategies.
-We show that prompting strategy is a stronger predictor of detection accuracy
-than model identity---that Algorand is consistently harder than Solana---and
-that EVM-specific hallucinations remain a genuine failure mode even for
-strong models on PyTEAL code.
-We release complete reproduction tooling: RAG index construction, experiment
-execution, auto-scoring, and figure generation, all runnable from a single
-command.
+The second is a DR/FPR/EQS/RC scorecard across all 216 combinations of three
+frontier LLMs and three prompting strategies---the first such scorecard for
+non-EVM chains.
+Third, the results show that prompting strategy is a stronger predictor of
+detection accuracy than model identity, that Algorand is consistently harder
+than Solana, and that EVM-specific hallucinations remain a genuine failure mode
+even for strong models on PyTEAL code.
+Finally, complete reproduction tooling accompanies the paper: RAG index
+construction, experiment execution, auto-scoring, and figure generation, all
+runnable from a single command.
 
 The paper proceeds as follows.
 Section~\ref{sec:background} reviews related work;
@@ -134,8 +135,9 @@ Section~\ref{sec:conclusion} concludes.
 The Ethereum tooling ecosystem is mature enough to have produced real
 standards.
 Slither~\cite{feist2019slither} is a Python static analysis framework with
-over 80 Solidity detectors; it's the default baseline in most smart
-contract security research.
+over 80 Solidity detectors; it remains the default baseline in most smart
+contract security research, though it has no detectors for Rust or
+PyTEAL and cannot analyze programs outside the EVM toolchain.
 Mythril goes lower, applying symbolic execution to raw EVM bytecode to find
 integer overflows, reentrancy bugs, and access control failures.
 LLM-based tools have followed: GPTScan~\cite{sun2024gptscan} pairs GPT-4
@@ -783,10 +785,12 @@ under-resourced problem.
 
 Limitations are clear: 24 contracts, eight classes, isolated single-flaw
 instances.
-Future work ought to scale the contract corpus, add Move-based chains such as
-Sui and Aptos, and explore hybrid pipelines that pair LLM reasoning with
-chain-specific static analysis---particularly for the residual hard cases
-(V4, V5) that prompt engineering alone cannot reliably solve.
+The most concrete next step is pairing LLM prompting with VRust-style
+dataflow analysis for V4 and V5, where static analysis can confirm PDA
+canonicality and CPI state staleness that language models currently miss.
+Scaling the corpus to 100+ contracts per chain and adding Move-based chains
+(Sui, Aptos) would test whether the prompting-strategy-dominates-model-identity
+finding holds across a wider range of program structures and language semantics.
 
 % -----------------------------------------------------------------------
 \bibliographystyle{IEEEtran}
