@@ -56,9 +56,9 @@ a reproducible capsule is on Code Ocean
 (\url{https://doi.org/10.24433/CO.1982416.v1}).
 \end{abstract}
 
-\keywords{metaverse security \and smart contract vulnerability \and large
-language models \and Solana \and Algorand \and blockchain \and prompt
-engineering \and retrieval-augmented generation}
+\keywords{metaverse security \and smart contract vulnerability \and
+large language models \and Solana \and Algorand \and prompt engineering
+\and retrieval-augmented generation}
 
 %% ---------------------------------------------------------------
 \section{Introduction}
@@ -236,7 +236,8 @@ Release-mode Rust does not panic on integer overflow; arithmetic wraps silently.
 Virtual economy calculations of the form \texttt{amount * rate} are dangerous
 when both operands are large because the wrapped result dramatically overstates
 payouts, enabling economic exploits in metaverse token vaults.
-The fix is \texttt{checked\_mul().ok\_or(VaultError::Overflow)?}.
+Replacing the operator with Rust's checked variant
+(\texttt{checked\_mul()}) and propagating the overflow error is the standard fix.
 
 \textbf{V4. Bump seed canonicalization.}
 Program-derived addresses (PDAs) on Solana are found by iterating bump seeds
@@ -317,13 +318,13 @@ V8 & Unchecked asset fields        & Algorand & 3 \\
 The experiment crosses three models, three prompting strategies, and 24
 contracts, yielding $24 \times 3 \times 3 = 216$ total runs.
 
-\textbf{Models.} GPT-4o (\texttt{gpt-4o-2024-08-06}), Claude Sonnet~4
-(\texttt{claude-sonnet-4-20250514}), and Llama-3.3-70B-Instruct
-(\texttt{meta-llama/Llama-3.3-70B-Instruct-Turbo}, served via Together~AI)
-represent one closed-source frontier model from each of the leading AI
-providers, plus a strong open-weights baseline.
-All models ran at temperature~0 for deterministic outputs, with a maximum
-output length of 4{,}096~tokens.
+\textbf{Models.} Three models are used. GPT-4o (\texttt{gpt-4o-2024-08-06})
+and Claude Sonnet~4 (\texttt{claude-sonnet-4-20250514}) are closed-source
+frontier models from OpenAI and Anthropic respectively; Llama-3.3-70B-Instruct
+(served as \texttt{Llama-3.3-70B-Instruct-Turbo} via Together~AI) is a strong
+open-weights baseline.
+All three ran at temperature~0 for deterministic outputs, with a maximum output
+length of 4{,}096~tokens.
 
 \textbf{Prompting strategies.}
 Zero-shot provides the contract source code and a chain-specific audit
@@ -394,10 +395,10 @@ patterns. \{standard audit instruction\}}
 
 \subsection{Reproducibility}
 
-\texttt{scripts/run\_experiments.py} handles all 216 runs.
-\texttt{scripts/score\_outputs.py} produces \texttt{results/scores.csv}.
-\texttt{scripts/analyze.py} generates all figures.
-\texttt{scripts/rag\_index.py} builds the FAISS index.
+The script \texttt{run\_experiments.py} handles all 216 runs and writes raw
+outputs to \texttt{results/}; \texttt{score\_outputs.py} produces
+\texttt{scores.csv}; \texttt{analyze.py} generates all figures; and
+\texttt{rag\_index.py} builds the FAISS index.
 Estimated API cost is under \$20.
 A fully reproducible compute capsule is at
 \url{https://doi.org/10.24433/CO.1982416.v1}.
@@ -674,8 +675,9 @@ adopted in metaverse gaming is an open question worth pursuing.
 
 \textbf{Data availability.} All contracts, prompts, raw model outputs, and
 pre-computed scores are available at
-\url{https://github.com/NucleiAv/llm-audit-nonevm} and via the Code Ocean
-reproducible capsule \url{https://doi.org/10.24433/CO.1982416.v1}.
+\url{https://github.com/NucleiAv/llm-audit-nonevm}.
+A reproducible Code Ocean capsule is at
+\url{https://doi.org/10.24433/CO.1982416.v1}.
 
 \textbf{Code availability.} Full source code is available at
 \url{https://github.com/NucleiAv/llm-audit-nonevm}.
