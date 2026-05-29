@@ -5,6 +5,7 @@
 \usepackage{multirow}
 \usepackage{adjustbox}
 \usepackage{amsmath}
+\PassOptionsToPackage{hyphens}{url}
 \usepackage[hidelinks]{hyperref}
 \usepackage{url}
 \usepackage{tabularx}
@@ -320,11 +321,10 @@ contracts, yielding $24 \times 3 \times 3 = 216$ total runs.
 
 \textbf{Models.} Three models are used. GPT-4o (\texttt{gpt-4o-2024-08-06})
 and Claude Sonnet~4 (\texttt{claude-sonnet-4-20250514}) are closed-source
-frontier models from OpenAI and Anthropic respectively; Llama-3.3-70B-Instruct
-(served as \texttt{Llama-3.3-70B-Instruct-Turbo} via Together~AI) is a strong
-open-weights baseline.
-All three ran at temperature~0 for deterministic outputs, with a maximum output
-length of 4{,}096~tokens.
+frontier models from OpenAI and Anthropic respectively. Llama-3.3-70B-Instruct,
+served via Together~AI, provides a strong open-weights baseline.
+All three ran at temperature~0 for deterministic outputs, with a maximum
+output length of 4{,}096~tokens.
 
 \textbf{Prompting strategies.}
 Zero-shot provides the contract source code and a chain-specific audit
