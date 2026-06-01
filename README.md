@@ -4,7 +4,7 @@ Companion repository for the paper submitted to **METAVERSE 2026** (Springer LNC
 
 **Author:** Anmol Vats, NYU Tandon School of Engineering (`av3938@nyu.edu`)
 
-**Reproducible capsule:** [Code Ocean DOI 10.24433/CO.1982416.v1](https://doi.org/10.24433/CO.1982416.v1)
+**Reproducible capsule:** [Code Ocean DOI 10.24433/CO.0475286.v1](https://doi.org/10.24433/CO.0475286.v1)
 
 ---
 
