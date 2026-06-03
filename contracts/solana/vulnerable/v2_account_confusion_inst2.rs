@@ -1,8 +1,3 @@
-// V2: Account confusion - Instance 2
-// Pattern: AMM pool swap where the fee_vault account is accepted as
-// raw AccountInfo, allowing an attacker to substitute their own account
-// and redirect protocol fees.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -24,15 +19,12 @@ pub mod amm_pool {
         Ok(())
     }
 
-    // BUG: fee_vault is AccountInfo — its key is never checked against pool.fee_vault.
-    // An attacker passes their own token account as fee_vault and receives the fee.
     pub fn swap(ctx: Context<Swap>, amount_in: u64) -> Result<()> {
         let fee = (amount_in as u128
             * ctx.accounts.pool.swap_fee_bps as u128
             / 10_000) as u64;
         let amount_out = amount_in - fee;
 
-        // Fee transfer to fee_vault (unverified account).
         let cpi_accounts = anchor_spl::token::Transfer {
             from: ctx.accounts.user_token_in.to_account_info(),
             to: ctx.accounts.fee_vault.to_account_info(),
@@ -68,7 +60,6 @@ pub struct Swap<'info> {
     pub user: Signer<'info>,
     #[account(mut)]
     pub user_token_in: Account<'info, TokenAccount>,
-    // BUG: AccountInfo — no check that this key equals pool.fee_vault.
     #[account(mut)]
     pub fee_vault: AccountInfo<'info>,
     pub token_program: Program<'info, Token>,

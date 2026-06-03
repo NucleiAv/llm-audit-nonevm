@@ -25,9 +25,7 @@ RAG_TOP_K = 3
 
 MODELS = {
     "gpt-4o": "gpt-4o-2024-08-06",
-    # claude-3-7-sonnet-20250219 reached EOL 2026-02-19; claude-sonnet-4-20250514 is current
     "claude-3-7": "claude-sonnet-4-20250514",
-    # CodeLlama 34B serverless not available; Llama-3.3-70B is the accessible open model
     "codellama": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
 }
 
@@ -51,19 +49,16 @@ VULN_CLASSES = {
 
 INSTANCES = ["inst1", "inst2", "inst3"]
 
-
 def load_contract(path: Path) -> str:
     if not path.exists():
         raise FileNotFoundError(f"Contract file not found: {path}")
     return path.read_text(encoding="utf-8")
-
 
 def load_prompt_template(strategy: str, chain: str) -> str:
     path = PROMPTS_DIR / f"{strategy}_{chain}.txt"
     if not path.exists():
         raise FileNotFoundError(f"Prompt template not found: {path}")
     return path.read_text(encoding="utf-8")
-
 
 def retrieve_context(client: OpenAI, contract_code: str, top_k: int) -> str:
     index_path = RAG_INDEX_DIR / "index.faiss"
@@ -84,7 +79,6 @@ def retrieve_context(client: OpenAI, contract_code: str, top_k: int) -> str:
     retrieved = [chunks[i]["text"] for i in indices[0] if i < len(chunks)]
     return "\n\n---\n\n".join(retrieved)
 
-
 def build_prompt(
     strategy: str, chain: str, contract_code: str, openai_client: OpenAI
 ) -> str:
@@ -96,7 +90,6 @@ def build_prompt(
         )
     return template.replace("{contract_code}", contract_code)
 
-
 def call_gpt4o(client: OpenAI, prompt: str, model_version: str) -> str:
     response = client.chat.completions.create(
         model=model_version,
@@ -104,7 +97,6 @@ def call_gpt4o(client: OpenAI, prompt: str, model_version: str) -> str:
         temperature=0,
     )
     return response.choices[0].message.content
-
 
 def call_claude(client: anthropic.Anthropic, prompt: str, model_version: str) -> str:
     response = client.messages.create(
@@ -114,9 +106,7 @@ def call_claude(client: anthropic.Anthropic, prompt: str, model_version: str) ->
     )
     return response.content[0].text
 
-
 def call_codellama(prompt: str, model_version: str, openrouter_api_key: str) -> str:
-    # Open-source model (Llama-3.3-70B) routed through Together AI serverless endpoint
     from openai import OpenAI as TogetherClient
 
     client = TogetherClient(
@@ -130,7 +120,6 @@ def call_codellama(prompt: str, model_version: str, openrouter_api_key: str) -> 
         max_tokens=4096,
     )
     return response.choices[0].message.content
-
 
 def run_single(
     chain: str,
@@ -195,7 +184,6 @@ def run_single(
     logging.info("wrote %s", output_filename)
     return result
 
-
 def enumerate_all_runs() -> list[dict]:
     runs = []
     for chain, classes in VULN_CLASSES.items():
@@ -214,7 +202,6 @@ def enumerate_all_runs() -> list[dict]:
                         )
     return runs
 
-
 def check_missing() -> None:
     all_runs = enumerate_all_runs()
     missing = []
@@ -231,7 +218,6 @@ def check_missing() -> None:
             print(m)
     else:
         logging.info("all 216 runs present")
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -277,7 +263,6 @@ def main() -> None:
         contract_path = Path(args.contract)
         parts = contract_path.stem.split("_")
         chain = "solana" if contract_path.suffix == ".rs" else "algorand"
-        # vuln_class is always 3 parts: v{n}_{word}_{word}
         vuln_class = "_".join(parts[:3])
         instance = parts[-1]
         run_single(
@@ -323,11 +308,9 @@ def main() -> None:
         except Exception as exc:
             logging.error("failed %s: %s", output_fname, exc)
             continue
-        # Brief pause to respect API rate limits.
         time.sleep(0.5)
 
     logging.info("all experiments complete")
-
 
 if __name__ == "__main__":
     main()

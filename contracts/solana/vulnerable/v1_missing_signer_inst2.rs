@@ -1,8 +1,3 @@
-// V1: Missing signer check - Instance 2
-// Pattern: Lending protocol admin instruction without signer enforcement.
-// Any caller can invoke pause_protocol or set_fee_recipient because
-// admin is AccountInfo rather than Signer.
-
 use anchor_lang::prelude::*;
 
 declare_id!("LEND1111111111111111111111111111111111111111");
@@ -20,14 +15,11 @@ pub mod lending_protocol {
         Ok(())
     }
 
-    // BUG: admin is not Signer. Any transaction can reach this instruction
-    // and flip paused = true, halting all user operations.
     pub fn pause_protocol(ctx: Context<AdminAction>) -> Result<()> {
         ctx.accounts.state.paused = true;
         Ok(())
     }
 
-    // BUG: same pattern — no signer check on admin AccountInfo.
     pub fn set_fee_recipient(ctx: Context<AdminAction>, new_recipient: Pubkey) -> Result<()> {
         ctx.accounts.state.fee_recipient = new_recipient;
         Ok(())
@@ -61,7 +53,6 @@ pub struct Initialize<'info> {
 pub struct AdminAction<'info> {
     #[account(mut, seeds = [b"state"], bump = state.bump)]
     pub state: Account<'info, State>,
-    // BUG: AccountInfo does not enforce signing.
     pub admin: AccountInfo<'info>,
 }
 

@@ -1,6 +1,3 @@
-// V3: Arithmetic overflow on u64 - Instance 1 (PATCHED)
-// Fix: use checked_mul and checked_div; return error on overflow.
-
 use anchor_lang::prelude::*;
 
 declare_id!("YIELD111111111111111111111111111111111111111");
@@ -32,7 +29,6 @@ pub mod yield_vault {
     pub fn withdraw_with_yield(ctx: Context<VaultAction>, amount: u64) -> Result<()> {
         let rate = ctx.accounts.vault.annual_rate_bps;
 
-        // FIX: checked_mul prevents wrapping; error returned on overflow.
         let yield_amount = amount
             .checked_mul(rate)
             .ok_or(VaultError::Overflow)?

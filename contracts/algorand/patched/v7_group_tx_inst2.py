@@ -1,10 +1,6 @@
-# V7: Group transaction manipulation - Instance 2 (PATCHED)
-# Fix: assert Global.group_size() == 2 to prevent transaction insertion.
-
 from pyteal import *
 
 DEX_APP_ID = Int(999999)
-
 
 def swap_contract() -> Expr:
     asset_transfer_ok = And(
@@ -18,7 +14,6 @@ def swap_contract() -> Expr:
         Gtxn[1].application_id() == DEX_APP_ID,
     )
 
-    # FIX: exact group size enforced — no extra transactions permitted.
     group_size_ok = Global.group_size() == Int(2)
 
     return Seq(
@@ -28,17 +23,14 @@ def swap_contract() -> Expr:
         Approve(),
     )
 
-
 def approval_program() -> Expr:
     return Cond(
         [Txn.application_id() == Int(0), Approve()],
         [Txn.on_completion() == OnComplete.NoOp, swap_contract()],
     )
 
-
 def clear_program() -> Expr:
     return Approve()
-
 
 if __name__ == "__main__":
     print("Approval:")

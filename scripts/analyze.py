@@ -1,15 +1,3 @@
-"""
-Generate all six figures for the paper from results/scores.csv.
-
-Figures produced:
-  fig1_detection_rate_by_strategy.png  - grouped bar chart, DR by strategy and model
-  fig2_strategy_heatmap.png            - heatmap of DR by vuln class x strategy-model
-  fig3_fpr_comparison.png              - FPR by strategy and model
-  fig4_coverage_gap.png                - horizontal bar chart: tools per blockchain
-  fig5_pipeline_diagram.png            - experimental pipeline process diagram
-  fig6_eqs_distribution.png            - EQS violin plot by strategy
-"""
-
 import logging
 from pathlib import Path
 
@@ -48,8 +36,7 @@ VULN_CLASS_SHORT = {
 }
 
 DPI = 300
-COLUMN_WIDTH_INCHES = 3.46  # 88mm IEEE column
-
+COLUMN_WIDTH_INCHES = 3.46
 
 def load_scores() -> pd.DataFrame:
     if not SCORES_CSV.exists():
@@ -60,7 +47,6 @@ def load_scores() -> pd.DataFrame:
     df["RC"] = pd.to_numeric(df["RC"], errors="coerce")
     df["FPR"] = pd.to_numeric(df["FPR"], errors="coerce")
     return df
-
 
 def fig1_detection_rate(df: pd.DataFrame, out_dir: Path) -> None:
     fig, axes = plt.subplots(
@@ -114,7 +100,6 @@ def fig1_detection_rate(df: pd.DataFrame, out_dir: Path) -> None:
     plt.close(fig)
     logging.info("saved %s", out_path)
 
-
 def fig2_strategy_heatmap(df: pd.DataFrame, out_dir: Path) -> None:
     strategy_model_cols = [
         f"{s}_{m}"
@@ -128,7 +113,6 @@ def fig2_strategy_heatmap(df: pd.DataFrame, out_dir: Path) -> None:
         for col_j, sm in enumerate(strategy_model_cols):
             parts = sm.rsplit("_", 2)
             strategy = "_".join(parts[:-2]) if len(parts) > 2 else parts[0]
-            # Split strategy_model by known model names
             for model in ["gpt-4o", "claude-3-7", "codellama"]:
                 if sm.endswith(model):
                     strategy = sm[: -len(model) - 1]
@@ -173,7 +157,6 @@ def fig2_strategy_heatmap(df: pd.DataFrame, out_dir: Path) -> None:
     plt.close(fig)
     logging.info("saved %s", out_path)
 
-
 def fig3_fpr_comparison(df: pd.DataFrame, out_dir: Path) -> None:
     fpr_df = df[df["FPR"].notna()]
     strategies = ["zero_shot", "cot", "rag"]
@@ -212,7 +195,6 @@ def fig3_fpr_comparison(df: pd.DataFrame, out_dir: Path) -> None:
     fig.savefig(out_path, dpi=DPI, bbox_inches="tight")
     plt.close(fig)
     logging.info("saved %s", out_path)
-
 
 def fig4_coverage_gap(out_dir: Path) -> None:
     ecosystems = ["Ethereum", "Solana", "Algorand"]
@@ -253,7 +235,6 @@ def fig4_coverage_gap(out_dir: Path) -> None:
     fig.savefig(out_path, dpi=DPI, bbox_inches="tight")
     plt.close(fig)
     logging.info("saved %s", out_path)
-
 
 def fig5_pipeline_diagram(out_dir: Path) -> None:
     fig, ax = plt.subplots(figsize=(COLUMN_WIDTH_INCHES * 2.5, 3.5))
@@ -320,7 +301,6 @@ def fig5_pipeline_diagram(out_dir: Path) -> None:
     plt.close(fig)
     logging.info("saved %s", out_path)
 
-
 def fig6_eqs_distribution(df: pd.DataFrame, out_dir: Path) -> None:
     eqs_df = df[df["EQS"].notna() & (df["DR"] == 1)]
     strategies = ["zero_shot", "cot", "rag"]
@@ -349,7 +329,6 @@ def fig6_eqs_distribution(df: pd.DataFrame, out_dir: Path) -> None:
     plt.close(fig)
     logging.info("saved %s", out_path)
 
-
 def main() -> None:
     FIGURES_DIR.mkdir(exist_ok=True)
     df = load_scores()
@@ -363,7 +342,6 @@ def main() -> None:
     fig6_eqs_distribution(df, FIGURES_DIR)
 
     logging.info("all figures generated in %s", FIGURES_DIR)
-
 
 if __name__ == "__main__":
     main()

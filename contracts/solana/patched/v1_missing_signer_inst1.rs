@@ -1,7 +1,3 @@
-// V1: Missing signer check - Instance 1 (PATCHED)
-// Fix: caller is now Signer<'info> and constrained to equal pool.authority,
-// so only the current authority can reassign upgrade control.
-
 use anchor_lang::prelude::*;
 
 declare_id!("JET111111111111111111111111111111111111111111");
@@ -57,8 +53,6 @@ pub struct SetUpgradeAuthority<'info> {
         has_one = authority
     )]
     pub pool: Account<'info, Pool>,
-    // FIX: Signer<'info> enforces that the transaction was signed by this key,
-    // and has_one = authority ensures it equals pool.authority.
     pub authority: Signer<'info>,
 }
 

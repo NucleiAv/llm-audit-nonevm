@@ -1,7 +1,3 @@
-// V2: Account confusion - Instance 1 (PATCHED)
-// Fix: collateral_mint is typed as Account<'info, Mint> and constrained
-// with address = state.treasury_mint so only the registered mint is accepted.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount};
 
@@ -50,7 +46,6 @@ pub struct MintCash<'info> {
     #[account(mut, seeds = [b"state"], bump = state.bump)]
     pub state: Account<'info, State>,
     pub user: Signer<'info>,
-    // FIX: typed as Mint and constrained to the registered treasury_mint address.
     #[account(address = state.treasury_mint)]
     pub collateral_mint: Account<'info, Mint>,
     #[account(mut, token::mint = collateral_mint)]

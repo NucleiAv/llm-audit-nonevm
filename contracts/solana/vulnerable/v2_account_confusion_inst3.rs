@@ -1,8 +1,3 @@
-// V2: Account confusion - Instance 3 (variant)
-// Subtler pattern: the program checks the account's owner program but not
-// its specific key. An attacker can pass any account owned by the Token
-// program (e.g., a different token account they control) and pass the check.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -19,19 +14,14 @@ pub mod staking {
         Ok(())
     }
 
-    // BUG: only checks that reward_vault.owner == Token program.
-    // Does not verify the specific key equals state.reward_vault.
-    // An attacker can pass any SPL token account they own.
     pub fn claim_rewards(ctx: Context<ClaimRewards>, amount: u64) -> Result<()> {
         let reward_vault = &ctx.accounts.reward_vault;
 
-        // Weak check: only verifies Token program ownership, not specific account.
         require!(
             reward_vault.owner == &anchor_spl::token::ID,
             StakingError::InvalidRewardVault
         );
 
-        // Transfer from protocol-controlled vault to user (simplified).
         ctx.accounts.state.total_claimed = ctx.accounts.state.total_claimed.wrapping_add(amount);
         Ok(())
     }
@@ -57,7 +47,6 @@ pub struct ClaimRewards<'info> {
     #[account(mut, seeds = [b"state"], bump = state.bump)]
     pub state: Account<'info, State>,
     pub user: Signer<'info>,
-    // BUG: AccountInfo — only owner checked in instruction body, not key.
     pub reward_vault: AccountInfo<'info>,
     pub token_program: Program<'info, Token>,
 }

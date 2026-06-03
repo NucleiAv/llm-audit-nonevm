@@ -1,10 +1,3 @@
-// V1: Missing signer check - Instance 3 (variant)
-// Subtler pattern: the authority account IS present but checked only via
-// a manual key comparison, not through the Anchor Signer type.
-// The key comparison passes if the attacker simply passes the authority
-// pubkey as a non-signing account — Solana does not reject non-signing
-// accounts being passed by their pubkey alone.
-
 use anchor_lang::prelude::*;
 
 declare_id!("VAULT111111111111111111111111111111111111111");
@@ -21,8 +14,6 @@ pub mod vault {
         Ok(())
     }
 
-    // BUG: manual key check is not equivalent to a signature check.
-    // An attacker passes the known authority pubkey without actually signing.
     pub fn unlock_vault(ctx: Context<UnlockVault>) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         require!(
@@ -58,8 +49,6 @@ pub struct Initialize<'info> {
 pub struct UnlockVault<'info> {
     #[account(mut, seeds = [b"vault"], bump = vault.bump)]
     pub vault: Account<'info, Vault>,
-    // BUG: AccountInfo — the key check in the instruction body only confirms
-    // the public key matches, not that the private key was used to sign.
     pub caller: AccountInfo<'info>,
 }
 

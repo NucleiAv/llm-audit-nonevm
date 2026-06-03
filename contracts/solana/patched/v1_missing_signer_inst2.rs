@@ -1,6 +1,3 @@
-// V1: Missing signer check - Instance 2 (PATCHED)
-// Fix: admin is Signer<'info> with has_one = admin constraint.
-
 use anchor_lang::prelude::*;
 
 declare_id!("LEND1111111111111111111111111111111111111111");
@@ -56,7 +53,6 @@ pub struct Initialize<'info> {
 pub struct AdminAction<'info> {
     #[account(mut, seeds = [b"state"], bump = state.bump, has_one = admin)]
     pub state: Account<'info, State>,
-    // FIX: Signer enforces the admin signed; has_one ensures it matches state.admin.
     pub admin: Signer<'info>,
 }
 

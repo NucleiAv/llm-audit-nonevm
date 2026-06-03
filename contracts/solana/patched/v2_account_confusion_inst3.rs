@@ -1,6 +1,3 @@
-// V2: Account confusion - Instance 3 (PATCHED)
-// Fix: reward_vault typed as TokenAccount with address = state.reward_vault.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -43,7 +40,6 @@ pub struct ClaimRewards<'info> {
     #[account(mut, seeds = [b"state"], bump = state.bump)]
     pub state: Account<'info, State>,
     pub user: Signer<'info>,
-    // FIX: typed as TokenAccount, address-constrained to state.reward_vault.
     #[account(address = state.reward_vault)]
     pub reward_vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,

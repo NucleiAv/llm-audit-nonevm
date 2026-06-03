@@ -1,11 +1,7 @@
-// V3: Arithmetic overflow on u64 - Instance 2 (PATCHED)
-// Fix: use checked_mul and validate raw_price has an upper bound.
-
 use anchor_lang::prelude::*;
 
 declare_id!("ORACLE11111111111111111111111111111111111111");
 
-// Maximum raw price accepted — prevents overflow with scale factor of 10^6.
 const MAX_RAW_PRICE: u64 = u64::MAX / 1_000_000;
 
 #[program]
@@ -24,7 +20,6 @@ pub mod price_oracle {
         require!(raw_price <= MAX_RAW_PRICE, OracleError::PriceTooLarge);
         let oracle = &mut ctx.accounts.oracle;
         let scale_factor = 10u64.pow(oracle.scale as u32);
-        // FIX: checked_mul returns error instead of wrapping.
         oracle.price = raw_price
             .checked_mul(scale_factor)
             .ok_or(OracleError::Overflow)?;

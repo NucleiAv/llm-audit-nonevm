@@ -1,6 +1,3 @@
-// V5: Stale account data after CPI - Instance 2 (PATCHED)
-// Fix: reload() both reserve accounts after the CPI before any calculation.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
@@ -29,14 +26,13 @@ pub mod liquidity_pool {
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_ctx, amount_in)?;
 
-        // FIX: reload both reserve accounts to get post-CPI state.
         ctx.accounts.reserve_a.reload()?;
         ctx.accounts.reserve_b.reload()?;
 
         let k = reserve_a_before
             .checked_mul(reserve_b_before)
             .ok_or(PoolError::Overflow)?;
-        let new_reserve_a = ctx.accounts.reserve_a.amount; // fresh post-CPI value
+        let new_reserve_a = ctx.accounts.reserve_a.amount;
         let amount_out = reserve_b_before.saturating_sub(k / new_reserve_a.max(1));
 
         ctx.accounts.pool.price = ctx

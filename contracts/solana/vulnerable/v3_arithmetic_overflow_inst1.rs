@@ -1,10 +1,3 @@
-// V3: Arithmetic overflow on u64 - Instance 1
-// Pattern: Token yield calculation uses unchecked multiplication on u64.
-// In Solana release builds, u64 arithmetic wraps on overflow.
-// An attacker passes amount = u64::MAX / rate + 1, causing yield to wrap
-// to a small number and allowing withdrawal of a disproportionate share.
-// Source: Sec3 Solana audit methodology, OWASP Smart Contract Top 10 2025.
-
 use anchor_lang::prelude::*;
 
 declare_id!("YIELD111111111111111111111111111111111111111");
@@ -32,13 +25,9 @@ pub mod yield_vault {
         Ok(())
     }
 
-    // BUG: unchecked multiplication on u64 — wraps in release build.
-    // If amount * annual_rate_bps overflows u64, yield_amount wraps to
-    // a small value, allowing draining the vault at minimal cost.
     pub fn withdraw_with_yield(ctx: Context<VaultAction>, amount: u64) -> Result<()> {
         let rate = ctx.accounts.vault.annual_rate_bps;
 
-        // Overflow possible: amount * rate overflows u64 when amount is large.
         let yield_amount = amount * rate / RATE_DENOMINATOR;
         let total_out = amount + yield_amount;
 

@@ -14,7 +14,6 @@ INDEX_DIR = CORPUS_DIR / "faiss_index"
 CHUNK_SIZE = 500
 EMBEDDING_MODEL = "text-embedding-3-small"
 
-
 def load_corpus_files(corpus_dir: Path) -> list[dict]:
     docs = []
     for path in sorted(corpus_dir.glob("*.txt")):
@@ -24,7 +23,6 @@ def load_corpus_files(corpus_dir: Path) -> list[dict]:
     if not docs:
         raise ValueError(f"No .txt files found in {corpus_dir}")
     return docs
-
 
 def chunk_documents(docs: list[dict], chunk_size: int) -> list[dict]:
     chunks = []
@@ -42,7 +40,6 @@ def chunk_documents(docs: list[dict], chunk_size: int) -> list[dict]:
     logging.info("created %d chunks from %d documents", len(chunks), len(docs))
     return chunks
 
-
 def embed_texts(client: OpenAI, texts: list[str]) -> np.ndarray:
     batch_size = 100
     all_embeddings = []
@@ -54,7 +51,6 @@ def embed_texts(client: OpenAI, texts: list[str]) -> np.ndarray:
         logging.info("embedded batch %d-%d", i, i + len(batch) - 1)
     return np.array(all_embeddings, dtype=np.float32)
 
-
 def build_faiss_index(embeddings: np.ndarray) -> faiss.Index:
     dim = embeddings.shape[1]
     index = faiss.IndexFlatIP(dim)
@@ -63,14 +59,12 @@ def build_faiss_index(embeddings: np.ndarray) -> faiss.Index:
     logging.info("built FAISS index with %d vectors (dim=%d)", index.ntotal, dim)
     return index
 
-
 def save_index(index: faiss.Index, chunks: list[dict], index_dir: Path) -> None:
     index_dir.mkdir(exist_ok=True)
     faiss.write_index(index, str(index_dir / "index.faiss"))
     with open(index_dir / "chunks.pkl", "wb") as f:
         pickle.dump(chunks, f)
     logging.info("saved index to %s", index_dir)
-
 
 def main() -> None:
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -85,7 +79,6 @@ def main() -> None:
     index = build_faiss_index(embeddings)
     save_index(index, chunks, INDEX_DIR)
     logging.info("RAG index build complete")
-
 
 if __name__ == "__main__":
     main()

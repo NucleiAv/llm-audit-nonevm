@@ -1,11 +1,3 @@
-// V2: Account confusion (type confusion) - Instance 1
-// Based on: Cashio exploit, March 2022. ~$52M loss.
-// Source: Halborn post-mortem, CertiK incident analysis.
-// Vulnerability: The mint instruction accepts collateral_mint as a raw
-// AccountInfo without verifying its owner or mint key against a trusted
-// registry. An attacker can pass a worthless SPL mint they control in place
-// of the expected USDC/USDT collateral mint, minting CASH against zero value.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount};
 
@@ -27,11 +19,7 @@ pub mod cashio {
         Ok(())
     }
 
-    // BUG: collateral_mint is AccountInfo — no check that it equals
-    // state.treasury_mint or that its owner is the SPL Token program.
-    // Any mint the attacker creates passes through.
     pub fn mint_cash(ctx: Context<MintCash>, collateral_amount: u64) -> Result<()> {
-        // Pretend 1:1 collateral ratio — no actual verification of what mint was passed.
         let state = &mut ctx.accounts.state;
         state.total_supply = state.total_supply.wrapping_add(collateral_amount);
         Ok(())
@@ -58,7 +46,6 @@ pub struct MintCash<'info> {
     #[account(mut, seeds = [b"state"], bump = state.bump)]
     pub state: Account<'info, State>,
     pub user: Signer<'info>,
-    // BUG: raw AccountInfo — owner, mint key, and program ownership unchecked.
     pub collateral_mint: AccountInfo<'info>,
     #[account(mut)]
     pub user_collateral_account: Account<'info, TokenAccount>,

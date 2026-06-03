@@ -1,9 +1,3 @@
-// V5: Stale account data after CPI - Instance 2
-// Pattern: A liquidity pool uses a CPI to an external pricing program.
-// The pool reads its own reserve amounts after the CPI that updates them,
-// but without reload() the stale pre-CPI values are used for pricing,
-// enabling profitable arbitrage that drains the pool.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
@@ -20,14 +14,10 @@ pub mod liquidity_pool {
         Ok(())
     }
 
-    // BUG: After rebalance CPI updates reserve_a and reserve_b on-chain,
-    // the pool still reads the stale deserialized values for price calculation.
     pub fn swap(ctx: Context<SwapAction>, amount_in: u64) -> Result<()> {
-        // Read reserve balances before CPI (correct here).
         let reserve_a_before = ctx.accounts.reserve_a.amount;
         let reserve_b_before = ctx.accounts.reserve_b.amount;
 
-        // CPI to external rebalancer that updates reserve token accounts.
         let cpi_accounts = Transfer {
             from: ctx.accounts.user_token_in.to_account_info(),
             to: ctx.accounts.reserve_a.to_account_info(),
@@ -36,15 +26,13 @@ pub mod liquidity_pool {
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_ctx, amount_in)?;
 
-        // BUG: reserve_a.amount is still the stale pre-CPI value.
-        // Constant product formula uses wrong (pre-swap) k value.
         let k = reserve_a_before
             .wrapping_mul(reserve_b_before);
-        let new_reserve_a = reserve_a_before.wrapping_add(amount_in); // stale base
+        let new_reserve_a = reserve_a_before.wrapping_add(amount_in);
         let amount_out = reserve_b_before.wrapping_sub(k / new_reserve_a);
 
         ctx.accounts.pool.price = ctx.accounts.reserve_a.amount / ctx.accounts.reserve_b.amount
-            .max(1); // stale reads used for price update
+            .max(1);
 
         let _ = amount_out;
         Ok(())

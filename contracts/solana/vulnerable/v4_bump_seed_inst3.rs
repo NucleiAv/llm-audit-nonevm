@@ -1,10 +1,3 @@
-// V4: Bump seed canonicalization - Instance 3 (variant)
-// Subtler: canonical bump IS stored, but the verification instruction
-// re-derives using create_program_address with the stored bump without
-// ensuring it matches the canonical bump from find_program_address.
-// An attacker who stores a non-canonical bump during a separate init path
-// can later pass validation because the stored bump re-derives a valid PDA.
-
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::Pubkey as SolanaPubkey;
 
@@ -20,7 +13,6 @@ pub mod escrow {
         amount: u64,
     ) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
-        // BUG: stores caller-supplied bump, not the canonical bump.
         escrow.bump = escrow_bump;
         escrow.depositor = ctx.accounts.depositor.key();
         escrow.amount = amount;
@@ -30,9 +22,6 @@ pub mod escrow {
     pub fn release_escrow(ctx: Context<ReleaseEscrow>) -> Result<()> {
         let escrow = &ctx.accounts.escrow;
 
-        // BUG: re-derives PDA using stored (potentially non-canonical) bump.
-        // A non-canonical bump still produces a valid PDA, so this check passes
-        // for an attacker-created escrow account with a crafted bump value.
         let expected = SolanaPubkey::create_program_address(
             &[
                 b"escrow",

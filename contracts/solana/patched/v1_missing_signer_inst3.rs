@@ -1,6 +1,3 @@
-// V1: Missing signer check - Instance 3 (PATCHED)
-// Fix: replace AccountInfo + manual key check with Signer<'info> + has_one constraint.
-
 use anchor_lang::prelude::*;
 
 declare_id!("VAULT111111111111111111111111111111111111111");
@@ -47,7 +44,6 @@ pub struct Initialize<'info> {
 pub struct UnlockVault<'info> {
     #[account(mut, seeds = [b"vault"], bump = vault.bump, has_one = authority)]
     pub vault: Account<'info, Vault>,
-    // FIX: Signer + has_one together guarantee the private key owner signed.
     pub authority: Signer<'info>,
 }
 

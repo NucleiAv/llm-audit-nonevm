@@ -1,7 +1,3 @@
-// V4: Bump seed canonicalization - Instance 3 (PATCHED)
-// Fix: use Anchor init with seeds+bump to enforce canonical bump at creation;
-// subsequent validation uses Anchor's seeds constraint (not manual re-derive).
-
 use anchor_lang::prelude::*;
 
 declare_id!("BUMPV3111111111111111111111111111111111111");
@@ -12,7 +8,6 @@ pub mod escrow {
 
     pub fn initialize_escrow(ctx: Context<InitEscrow>, amount: u64) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
-        // FIX: canonical bump from Anchor's find_program_address.
         escrow.bump = *ctx.bumps.get("escrow").unwrap();
         escrow.depositor = ctx.accounts.depositor.key();
         escrow.amount = amount;
@@ -20,7 +15,6 @@ pub mod escrow {
     }
 
     pub fn release_escrow(ctx: Context<ReleaseEscrow>) -> Result<()> {
-        // Anchor's seeds+bump constraint already validated the PDA — no manual re-derive needed.
         Ok(())
     }
 }
@@ -42,7 +36,6 @@ pub struct InitEscrow<'info> {
 
 #[derive(Accounts)]
 pub struct ReleaseEscrow<'info> {
-    // FIX: Anchor validates PDA using stored canonical bump — create_program_address not used.
     #[account(
         mut,
         seeds = [b"escrow", depositor.key().as_ref()],

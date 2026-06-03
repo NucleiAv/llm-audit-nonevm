@@ -1,9 +1,3 @@
-// V1: Missing signer check - Instance 1
-// Based on: Jet Protocol upgrade authority audit finding (Neodyme, 2021)
-// Vulnerability: The upgrade_authority instruction does not verify that the
-// caller is the actual program authority. Any account can invoke this and
-// reassign the upgrade authority to an attacker-controlled address.
-
 use anchor_lang::prelude::*;
 
 declare_id!("JET111111111111111111111111111111111111111111");
@@ -19,8 +13,6 @@ pub mod jet_pool {
         Ok(())
     }
 
-    // BUG: no signer check on `new_authority` or verification that
-    // ctx.accounts.caller is the current authority. Any account can call this.
     pub fn set_upgrade_authority(
         ctx: Context<SetUpgradeAuthority>,
         new_authority: Pubkey,
@@ -56,8 +48,6 @@ pub struct Initialize<'info> {
 pub struct SetUpgradeAuthority<'info> {
     #[account(mut, seeds = [b"pool"], bump = pool.bump)]
     pub pool: Account<'info, Pool>,
-    // BUG: caller is AccountInfo, not Signer<'info>.
-    // No runtime check that this account signed the transaction.
     pub caller: AccountInfo<'info>,
 }
 

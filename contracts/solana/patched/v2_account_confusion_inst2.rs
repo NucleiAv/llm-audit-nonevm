@@ -1,6 +1,3 @@
-// V2: Account confusion - Instance 2 (PATCHED)
-// Fix: fee_vault is typed as TokenAccount with address = pool.fee_vault constraint.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, TokenAccount};
 
@@ -63,7 +60,6 @@ pub struct Swap<'info> {
     pub user: Signer<'info>,
     #[account(mut)]
     pub user_token_in: Account<'info, TokenAccount>,
-    // FIX: typed as TokenAccount and address-constrained to the registered fee_vault.
     #[account(mut, address = pool.fee_vault)]
     pub fee_vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,

@@ -1,7 +1,3 @@
-// V5: Stale account data after CPI - Instance 3 (PATCHED)
-// Fix: reload() the counter account after any CPI that modifies it
-// before re-reading its fields as guard conditions.
-
 use anchor_lang::prelude::*;
 
 declare_id!("STALEV3111111111111111111111111111111111111");
@@ -30,11 +26,8 @@ pub mod parent_program {
             counter.value = counter.value.checked_add(1).ok_or(ProcessError::Overflow)?;
         }
 
-        // FIX: reload() ensures any subsequent guard reads reflect on-chain truth.
         ctx.accounts.counter.reload()?;
 
-        // After reload, processed == true — a second call within the same
-        // transaction would correctly fail the require! guard.
         require!(
             ctx.accounts.counter.processed,
             ProcessError::ReloadFailed

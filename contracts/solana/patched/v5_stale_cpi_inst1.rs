@@ -1,6 +1,3 @@
-// V5: Stale account data after CPI - Instance 1 (PATCHED)
-// Fix: call vault.reload() after the CPI to refresh the deserialized copy.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
@@ -28,10 +25,9 @@ pub mod stale_vault {
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_ctx, amount)?;
 
-        // FIX: reload() re-deserializes the account from the updated on-chain data.
         ctx.accounts.vault.reload()?;
 
-        let balance_after = ctx.accounts.vault.amount; // now reflects post-CPI state
+        let balance_after = ctx.accounts.vault.amount;
         let deposited = balance_after.saturating_sub(balance_before);
 
         ctx.accounts.state.tracked_balance = ctx

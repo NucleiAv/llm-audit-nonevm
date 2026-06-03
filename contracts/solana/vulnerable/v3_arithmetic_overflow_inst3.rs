@@ -1,9 +1,3 @@
-// V3: Arithmetic overflow on u64 - Instance 3 (variant)
-// Subtler pattern: two separate additions each appear safe individually,
-// but their combination (accumulated across multiple calls) silently wraps.
-// The shares_outstanding counter overflows after enough deposits, making
-// the share price calculation return near-zero, enabling share dilution.
-
 use anchor_lang::prelude::*;
 
 declare_id!("SHARES11111111111111111111111111111111111111");
@@ -20,14 +14,10 @@ pub mod share_vault {
         Ok(())
     }
 
-    // BUG: shares_outstanding + new_shares may overflow u64 in release build.
-    // After overflow, shares_outstanding wraps to a small number, making
-    // subsequent share price = total_assets / shares_outstanding enormous.
     pub fn issue_shares(ctx: Context<VaultAction>, new_shares: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        // Both lines use plain addition — no overflow check.
         vault.shares_outstanding = vault.shares_outstanding + new_shares;
-        vault.total_assets = vault.total_assets + new_shares; // 1:1 initial ratio
+        vault.total_assets = vault.total_assets + new_shares;
         Ok(())
     }
 
@@ -36,7 +26,6 @@ pub mod share_vault {
         if vault.shares_outstanding == 0 {
             return Ok(1);
         }
-        // Share price inflates incorrectly if shares_outstanding wrapped.
         Ok(vault.total_assets / vault.shares_outstanding)
     }
 }

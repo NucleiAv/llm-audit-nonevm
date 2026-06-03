@@ -1,10 +1,3 @@
-// V5: Stale account data after CPI - Instance 1
-// Source: Anchor security documentation, Sec3 audit methodology.
-// Vulnerability: After a CPI to the Token program that transfers tokens and
-// updates a token account's balance, the calling program still holds a stale
-// deserialized copy. Reading vault.amount after the CPI returns pre-CPI data,
-// enabling double-counting the same funds.
-
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
@@ -21,14 +14,9 @@ pub mod stale_vault {
         Ok(())
     }
 
-    // BUG: reads vault.amount AFTER the CPI transfer, but vault is still
-    // the stale pre-CPI deserialized copy. The balance appears unchanged
-    // in the calling program's view, allowing double-spend logic.
     pub fn deposit_and_track(ctx: Context<DepositAction>, amount: u64) -> Result<()> {
-        // Snapshot before CPI (correct at this point).
         let balance_before = ctx.accounts.vault.amount;
 
-        // CPI: transfer `amount` tokens into vault.
         let cpi_accounts = Transfer {
             from: ctx.accounts.user_token.to_account_info(),
             to: ctx.accounts.vault.to_account_info(),
@@ -37,13 +25,9 @@ pub mod stale_vault {
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_ctx, amount)?;
 
-        // BUG: vault.amount here is STALE — still shows pre-CPI value.
-        // The real vault balance is now balance_before + amount,
-        // but ctx.accounts.vault.amount still returns balance_before.
-        let balance_after = ctx.accounts.vault.amount; // stale read
-        let deposited = balance_after.wrapping_sub(balance_before); // computes 0
+        let balance_after = ctx.accounts.vault.amount;
+        let deposited = balance_after.wrapping_sub(balance_before);
 
-        // tracked_balance is never incremented correctly.
         ctx.accounts.state.tracked_balance = ctx
             .accounts
             .state

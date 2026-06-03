@@ -1,6 +1,3 @@
-// V3: Arithmetic overflow on u64 - Instance 3 (PATCHED)
-// Fix: checked_add on both accumulations; error on overflow.
-
 use anchor_lang::prelude::*;
 
 declare_id!("SHARES11111111111111111111111111111111111111");
@@ -19,7 +16,6 @@ pub mod share_vault {
 
     pub fn issue_shares(ctx: Context<VaultAction>, new_shares: u64) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
-        // FIX: checked_add prevents silent wrap-around.
         vault.shares_outstanding = vault
             .shares_outstanding
             .checked_add(new_shares)

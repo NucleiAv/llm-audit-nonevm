@@ -1,21 +1,3 @@
-"""
-Manual-assist scoring script for the 216 experimental runs.
-
-DR  (detection rate): 1 if model correctly names the vulnerability class
-    AND points to the correct code location; 0 otherwise.
-FPR (false positive rate): for patched contracts, 1 if model incorrectly
-    claims a vulnerability is present; measured separately by reading the
-    patched contract and checking model output.
-EQS (explanation quality score): 1-5 rubric (see proposal Section 5.3).
-RC  (reasoning coherence): 1 if model response contains no factually wrong
-    statements about the language/runtime (e.g., claiming Solana has
-    Ethereum-style reentrancy); 0 otherwise.
-
-Usage:
-  python scripts/score_outputs.py            # scores all unscored runs
-  python scripts/score_outputs.py --file <json_path>  # score single file
-"""
-
 import argparse
 import csv
 import json
@@ -113,7 +95,6 @@ EVM_HALLUCINATIONS = [
     "opcode",
 ]
 
-
 _KNOWN_VULN_CLASSES = [
     "v1_missing_signer",
     "v2_account_confusion",
@@ -127,7 +108,6 @@ _KNOWN_VULN_CLASSES = [
 _KNOWN_STRATEGIES = ["zero_shot", "cot", "rag"]
 _KNOWN_MODELS = ["gpt-4o", "claude-3-7", "codellama"]
 
-
 def parse_filename(filename: str) -> dict:
     stem = Path(filename).stem
     chain = stem.split("_")[0]
@@ -135,7 +115,6 @@ def parse_filename(filename: str) -> dict:
     if vuln_class is None:
         raise ValueError(f"Could not parse vuln_class from filename: {filename}")
     remainder = stem[len(chain) + 1 + len(vuln_class) + 1 :]
-    # remainder is now: {instance}_{strategy}_{model}
     instance = remainder.split("_")[0]
     after_instance = remainder[len(instance) + 1 :]
     strategy = next(
@@ -154,14 +133,11 @@ def parse_filename(filename: str) -> dict:
         "model": model,
     }
 
-
 def auto_score_dr(response: str, vuln_class: str) -> int:
     response_lower = response.lower()
     keywords = VULN_CLASS_KEYWORDS.get(vuln_class, [])
     return int(any(kw.lower() in response_lower for kw in keywords))
 
-
-# Phrases that strongly indicate the model is reporting NO vulnerability found.
 _NEGATIVE_VERDICTS = [
     "no vulnerability",
     "no vulnerabilities",
@@ -188,7 +164,6 @@ _NEGATIVE_VERDICTS = [
     "no flaw",
     "no flaws",
     "no bugs",
-    # CoT structured verdict patterns
     "presence: absent",
     "present or absent: absent",
     "status: absent",
@@ -202,7 +177,6 @@ _NEGATIVE_VERDICTS = [
     "absent",
 ]
 
-# Phrases that strongly indicate the model is asserting a vulnerability IS present.
 _POSITIVE_VERDICTS = [
     "vulnerability found",
     "vulnerability exists",
@@ -219,7 +193,6 @@ _POSITIVE_VERDICTS = [
     "attacker could exploit",
     "critical vulnerability",
     "high severity",
-    # CoT structured verdict patterns
     "presence: present",
     "present or absent: present",
     "status: present",
@@ -228,8 +201,6 @@ _POSITIVE_VERDICTS = [
     "finding: vulnerability",
 ]
 
-# Speculative / future-concern phrases — these indicate the model is hedging,
-# NOT making a definitive claim about the current code.
 _SPECULATIVE_HEDGES = [
     "could potentially",
     "future modification",
@@ -251,7 +222,6 @@ _SPECULATIVE_HEDGES = [
     "consideration:",
 ]
 
-# Section-heading keywords for each vulnerability class used in CoT responses.
 _CLASS_SECTION_KEYWORDS = {
     "v1_missing_signer": ["missing signer", "signer check", "1."],
     "v2_account_confusion": [
@@ -273,14 +243,7 @@ _CLASS_SECTION_KEYWORDS = {
     "v8_unchecked_fields": ["unchecked field", "unchecked asset", "8."],
 }
 
-
 def _extract_relevant_section(response: str, vuln_class: str) -> str:
-    """For CoT-style responses, extract only the section discussing vuln_class.
-
-    Finds the paragraph/section containing the class-specific heading and
-    returns text from that heading until the next numbered heading (or end).
-    Falls back to the full response if no section is found.
-    """
     resp_lower = response.lower()
     section_kws = _CLASS_SECTION_KEYWORDS.get(vuln_class, [])
 
@@ -292,36 +255,22 @@ def _extract_relevant_section(response: str, vuln_class: str) -> str:
                 best_start = idx
 
     if best_start == -1:
-        return response  # no section found, use full response
+        return response
 
-    # Find the next numbered section heading after best_start (e.g. "\n2." "\n3.")
     section_text = response[best_start:]
     next_section = re.search(r"\n\s*\d+[\.\)]\s+[A-Z]", section_text[10:])
     if next_section:
         return section_text[: next_section.start() + 10]
     return section_text
 
-
 def auto_score_fpr(response: str, vuln_class: str) -> int:
-    """Return 1 if the model falsely claims a vulnerability on a patched contract.
-
-    Improvements over naive keyword matching:
-    1. Extracts the relevant section of the response for the vulnerability class
-       (handles CoT responses that discuss multiple classes — avoids a "Present"
-       verdict for class V3 incorrectly flagging a V1 patched contract).
-    2. Speculative hedges ("could potentially in future", "while currently safe")
-       override positive verdicts and return FPR=0.
-    3. Explicit CoT verdict patterns ("Presence: Absent", "Status: ABSENT") are
-       recognised as strong negative verdicts.
-    """
     section = _extract_relevant_section(response, vuln_class)
     sec = section.lower()
     keywords = VULN_CLASS_KEYWORDS.get(vuln_class, [])
 
     if not any(kw.lower() in sec for kw in keywords):
-        return 0  # class not mentioned in relevant section
+        return 0
 
-    # Speculative hedge overrides everything → not a definite claim
     if any(hedge in sec for hedge in _SPECULATIVE_HEDGES):
         has_definite_positive = any(
             pv in sec
@@ -347,7 +296,6 @@ def auto_score_fpr(response: str, vuln_class: str) -> int:
     if has_positive and not has_negative:
         return 1
     if has_positive and has_negative:
-        # Mixed signals: trust the structured CoT verdict patterns over prose
         cot_positive = any(
             p in sec
             for p in (
@@ -371,9 +319,7 @@ def auto_score_fpr(response: str, vuln_class: str) -> int:
             return 0
         if cot_positive and not cot_negative:
             return 1
-    # Ambiguous — keyword present but no clear verdict
-    return 0  # benefit of the doubt on patched contracts
-
+    return 0
 
 def auto_score_rc(response: str, chain: str) -> int:
     response_lower = response.lower()
@@ -381,7 +327,6 @@ def auto_score_rc(response: str, chain: str) -> int:
         if hallucination in response_lower:
             return 0
     return 1
-
 
 def auto_score_eqs(response: str, vuln_class: str, dr: int) -> int:
     if dr == 0:
@@ -407,7 +352,6 @@ def auto_score_eqs(response: str, vuln_class: str, dr: int) -> int:
         score = 5
     return score
 
-
 def score_single_file(json_path: Path) -> dict:
     data = json.loads(json_path.read_text(encoding="utf-8"))
     meta = parse_filename(json_path.name)
@@ -431,14 +375,12 @@ def score_single_file(json_path: Path) -> dict:
         "notes": "",
     }
 
-
 def load_existing_scores() -> dict:
     if not SCORES_CSV.exists():
         return {}
     with open(SCORES_CSV, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         return {row["filename"]: row for row in reader}
-
 
 def save_scores(scores: list[dict]) -> None:
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -448,13 +390,7 @@ def save_scores(scores: list[dict]) -> None:
         writer.writerows(scores)
     logging.info("wrote %d rows to %s", len(scores), SCORES_CSV)
 
-
 def fill_fpr_from_patched() -> None:
-    """Score FPR column by checking model responses on patched contracts.
-
-    A false positive (FPR=1) means the model claimed a vulnerability exists
-    on a contract where the bug has been fixed.
-    """
     patched_files = sorted(PATCHED_DIR.glob("*.json"))
     if not patched_files:
         raise FileNotFoundError(
@@ -478,10 +414,9 @@ def fill_fpr_from_patched() -> None:
             logging.error("skip %s: %s", json_path.name, exc)
             continue
 
-        # FPR=1 only if model positively claims a vulnerability on the patched contract
         fpr = auto_score_fpr(response, meta["vuln_class"])
 
-        vuln_filename = json_path.name  # same name as vulnerable counterpart
+        vuln_filename = json_path.name
         if vuln_filename in existing:
             existing[vuln_filename]["FPR"] = fpr
             updated += 1
@@ -492,7 +427,6 @@ def fill_fpr_from_patched() -> None:
     rows = list(existing.values())
     save_scores(rows)
     logging.info("filled FPR for %d rows", updated)
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Score raw model outputs")
@@ -540,7 +474,6 @@ def main() -> None:
 
     save_scores(rows)
     logging.info("scoring complete: %d / 216 rows", len(rows))
-
 
 if __name__ == "__main__":
     main()
